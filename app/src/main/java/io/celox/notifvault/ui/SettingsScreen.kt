@@ -1,6 +1,11 @@
 package io.celox.notifvault.ui
 
 import android.content.Intent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -40,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.celox.notifvault.data.SettingsStore
+import io.celox.notifvault.ui.theme.Motion
 import io.celox.notifvault.util.ExportUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -75,12 +81,19 @@ fun SettingsScreen(vm: VaultViewModel, onBack: () -> Unit) {
         ) {
             Section("Überwachte Apps")
             ToggleRow("Alle Apps erfassen", captureAll) { vm.setCaptureAll(it) }
-            if (!captureAll) {
-                SettingsStore.KNOWN_MESSENGERS.forEach { (pkg, label) ->
-                    ToggleRow(label, pkg in monitored) { on ->
-                        val next = monitored.toMutableSet()
-                        if (on) next.add(pkg) else next.remove(pkg)
-                        vm.setMonitored(next)
+            // Spring expand/collapse so the per-app list reveals physically when toggling.
+            AnimatedVisibility(
+                visible = !captureAll,
+                enter = expandVertically(Motion.spatial()) + fadeIn(Motion.effects()),
+                exit = shrinkVertically(Motion.spatial()) + fadeOut(Motion.effects())
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SettingsStore.KNOWN_MESSENGERS.forEach { (pkg, label) ->
+                        ToggleRow(label, pkg in monitored) { on ->
+                            val next = monitored.toMutableSet()
+                            if (on) next.add(pkg) else next.remove(pkg)
+                            vm.setMonitored(next)
+                        }
                     }
                 }
             }

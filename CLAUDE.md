@@ -76,7 +76,13 @@ The whole app is one pipeline: a system notification → a stored, encrypted row
    `ConversationScreen` renders a chat archive (date separators, sender-run grouping, per-sender colors via
    `Format.identityColor`); `HomeScreen` shows colored `Avatar`s + search with match highlighting; destructive
    actions (delete chat / clear all) require confirmation dialogs. `VaultViewModel` (`AndroidViewModel`) owns
-   the DAO Flows as `StateFlow`s and the **debounced** search query. Shared bits: `Components.kt` (`Avatar`),
+   the DAO Flows as `StateFlow`s and the **debounced** search query. **Motion:** `theme/Motion.kt` is a small
+   spring-physics system (M3-Expressive-style tokens — `spatial` may overshoot for position/size/shape,
+   `effects` is high-damping for color/alpha; the public `MaterialExpressiveTheme`/`MotionScheme` only ship on
+   material3 1.5.0-alpha, so we stay on stable 1.3.x and roll our own). Use these specs, not fixed `tween`s,
+   for custom animations: `Components.clickableScale` (spring press feedback on rows), `LazyColumn` item
+   spring placement via `Modifier.animateItem(...)`, and the Settings per-app list / Onboarding cards reveal.
+   Shared bits: `Components.kt` (`Avatar`, `clickableScale`),
    `Format.kt` (date/time, `identityColor`, `initials`). Theme in `ui/theme/`.
 
 6. **`util/`** — `PermissionUtils` (notification-access check via `enabled_notification_listeners`, battery-

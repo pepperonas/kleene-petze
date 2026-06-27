@@ -41,6 +41,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.celox.notifvault.data.CapturedMessage
+import io.celox.notifvault.ui.theme.Motion
 
 private sealed interface ChatItem {
     data class DayHeader(val key: Long, val label: String) : ChatItem
@@ -137,9 +138,17 @@ fun ConversationScreen(
                 },
                 contentType = { it::class }
             ) { item ->
-                when (item) {
-                    is ChatItem.DayHeader -> DaySeparator(item.label)
-                    is ChatItem.Bubble -> MessageBubble(item.msg, item.showSender)
+                Box(
+                    Modifier.animateItem(
+                        fadeInSpec = Motion.effects(),
+                        placementSpec = Motion.spatial(),
+                        fadeOutSpec = Motion.effects()
+                    )
+                ) {
+                    when (item) {
+                        is ChatItem.DayHeader -> DaySeparator(item.label)
+                        is ChatItem.Bubble -> MessageBubble(item.msg, item.showSender)
+                    }
                 }
             }
         }

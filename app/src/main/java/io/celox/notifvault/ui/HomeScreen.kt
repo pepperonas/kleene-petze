@@ -1,6 +1,5 @@
 package io.celox.notifvault.ui
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -46,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.celox.notifvault.data.CapturedMessage
 import io.celox.notifvault.data.ConversationSummary
+import io.celox.notifvault.ui.theme.Motion
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -87,11 +87,21 @@ fun HomeScreen(
                 conversations.isEmpty() -> EmptyState(total)
                 else -> LazyColumn(Modifier.fillMaxSize()) {
                     items(conversations, key = { it.conversationKey + it.packageName }) { c ->
-                        ConversationRow(c) { onOpenConversation(c.conversationKey, c.packageName) }
-                        HorizontalDivider(
-                            Modifier.padding(start = 76.dp),
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
-                        )
+                        // Spring placement so a chat springing to the top on a new message
+                        // (and rows above sliding down) reads as physical, not a hard cut.
+                        Column(
+                            Modifier.animateItem(
+                                fadeInSpec = Motion.effects(),
+                                placementSpec = Motion.spatial(),
+                                fadeOutSpec = Motion.effects()
+                            )
+                        ) {
+                            ConversationRow(c) { onOpenConversation(c.conversationKey, c.packageName) }
+                            HorizontalDivider(
+                                Modifier.padding(start = 76.dp),
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+                            )
+                        }
                     }
                 }
             }
@@ -127,8 +137,16 @@ private fun SearchResults(
             )
         }
         items(results, key = { it.id }) { m ->
-            SearchResultRow(m, query) { onOpen(m.conversationKey, m.packageName) }
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+            Column(
+                Modifier.animateItem(
+                    fadeInSpec = Motion.effects(),
+                    placementSpec = Motion.spatial(),
+                    fadeOutSpec = Motion.effects()
+                )
+            ) {
+                SearchResultRow(m, query) { onOpen(m.conversationKey, m.packageName) }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+            }
         }
     }
 }
@@ -136,7 +154,7 @@ private fun SearchResults(
 @Composable
 private fun SearchResultRow(m: CapturedMessage, query: String, onClick: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(16.dp),
+        Modifier.fillMaxWidth().clickableScale(onClick = onClick).padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Avatar(m.conversation, m.isGroup, size = 44.dp)
@@ -171,7 +189,7 @@ private fun SearchResultRow(m: CapturedMessage, query: String, onClick: () -> Un
 @Composable
 private fun ConversationRow(c: ConversationSummary, onClick: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 12.dp),
+        Modifier.fillMaxWidth().clickableScale(onClick = onClick).padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Avatar(c.conversation, c.isGroup, size = 48.dp)
