@@ -20,12 +20,22 @@ Single Gradle module (`:app`), Kotlin + Jetpack Compose, minSdk 26 / target+comp
 ./gradlew assembleDebug        # APK → app/build/outputs/apk/debug/
 ./gradlew installDebug         # build + install to connected device/emulator
 ./gradlew lint                 # Android lint
-./gradlew testDebugUnitTest    # JVM unit tests (MessageId, ExportUtils, Format, SearchUtils)
+./gradlew testDebugUnitTest    # JVM unit tests (MessageId, Deletion, ExportUtils, Format, SearchUtils)
+./gradlew testDebugUnitTest --tests "io.celox.notifvault.notif.MessageIdTest"   # single test class
 ```
 
 There is **no `local.properties`** committed — Android Studio creates it, or copy `local.properties.example`
-and set `sdk.dir`. The repo is `github.com/pepperonas/kleene-petze` (public); signed release APKs are built by
-`.github/workflows/release.yml` on a `v*` tag (keystore secrets live only in the private `pepperonas/keystore`).
+and set `sdk.dir`. The repo is `github.com/pepperonas/kleene-petze` (public).
+
+## Release
+
+Releases are cut by tag: bump `versionCode` (+1) and `versionName` in `app/build.gradle.kts`, commit and
+push, then `git tag vX.Y.Z && git push origin vX.Y.Z` — `.github/workflows/release.yml` builds the signed
+APK and publishes it as a GitHub Release asset (`kleene-petze-vX.Y.Z.apk`). Verify the run succeeded
+(`gh run watch`/`gh run list`); a "job was not acquired by Runner" failure is a GitHub infra flake →
+`gh run rerun`. Local `assembleRelease` signs via the gitignored `keystore.properties` + `release.jks`
+(secrets live only in the private `pepperonas/keystore` repo and the Actions secrets — never commit
+`*.jks`/`keystore.properties`/`local.properties`; check `git status` before pushing).
 
 ## Architecture (data flow)
 
