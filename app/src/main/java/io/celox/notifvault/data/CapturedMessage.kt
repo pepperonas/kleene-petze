@@ -38,5 +38,9 @@ data class CapturedMessage(
     val text: String,
     val messageTime: Long,      // original timestamp of the message
     val capturedAt: Long,       // when we stored it
-    val deletionSuspected: Boolean = false
+    val deletionSuspected: Boolean = false,
+    // v4: an edited message re-arrives with the same conversationKey+sender+messageTime but
+    // new text (→ new content hash → new row). This flags the *older* version(s) so the UI
+    // can show "edited (earlier version)" while the newest row stays the current one.
+    @ColumnInfo(defaultValue = "0") val editSuperseded: Boolean = false
 )

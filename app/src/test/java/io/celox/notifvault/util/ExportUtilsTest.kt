@@ -13,7 +13,9 @@ class ExportUtilsTest {
         isGroup: Boolean = false,
         conversation: String = "Alice",
         sender: String = "Alice",
-        appLabel: String = "WhatsApp"
+        appLabel: String = "WhatsApp",
+        deleted: Boolean = false,
+        edited: Boolean = false
     ) = CapturedMessage(
         id = "id-${text.hashCode()}-$isGroup",
         packageName = "com.whatsapp",
@@ -24,27 +26,35 @@ class ExportUtilsTest {
         isGroup = isGroup,
         text = text,
         messageTime = 1_700_000_000_000,
-        capturedAt = 1_700_000_000_000
+        capturedAt = 1_700_000_000_000,
+        deletionSuspected = deleted,
+        editSuperseded = edited
     )
+
+    private val header = "Zeit;Erfasst;App;Chat;Absender;Gruppe;Gelöscht;Bearbeitet;Text\n"
 
     // ---- CSV ----
 
     @Test
     fun `csv starts with the header row`() {
-        assertTrue(ExportUtils.toCsv(emptyList()).startsWith("Zeit;App;Chat;Absender;Gruppe;Text\n"))
+        assertTrue(ExportUtils.toCsv(emptyList()).startsWith(header))
     }
 
     @Test
     fun `csv of empty list is header only`() {
-        assertEquals("Zeit;App;Chat;Absender;Gruppe;Text\n", ExportUtils.toCsv(emptyList()))
+        assertEquals(header, ExportUtils.toCsv(emptyList()))
     }
 
     @Test
-    fun `csv leaves plain fields unquoted and maps the group flag`() {
+    fun `csv leaves plain fields unquoted and maps the flags`() {
         val csv = ExportUtils.toCsv(listOf(msg("Hallo", isGroup = false)))
-        assertTrue(csv.contains(";WhatsApp;Alice;Alice;nein;Hallo"))
+        assertTrue(csv.contains(";WhatsApp;Alice;Alice;nein;nein;nein;Hallo"))
         val group = ExportUtils.toCsv(listOf(msg("Hi", isGroup = true)))
-        assertTrue(group.contains(";ja;Hi"))
+        assertTrue(group.contains(";ja;nein;nein;Hi"))
+        val deleted = ExportUtils.toCsv(listOf(msg("Weg", deleted = true)))
+        assertTrue(deleted.contains(";nein;ja;nein;Weg"))
+        val edited = ExportUtils.toCsv(listOf(msg("Alt", edited = true)))
+        assertTrue(edited.contains(";nein;nein;ja;Alt"))
     }
 
     @Test
@@ -94,6 +104,20 @@ class ExportUtilsTest {
     fun `json renders the group flag as a boolean literal`() {
         assertTrue(ExportUtils.toJson(listOf(msg("x", isGroup = true))).contains("\"group\":true"))
         assertTrue(ExportUtils.toJson(listOf(msg("x", isGroup = false))).contains("\"group\":false"))
+    }
+
+    @Test
+    fun `json is lossless - epoch times, package, key and verdict flags`() {
+        val json = ExportUtils.toJson(listOf(msg("x", deleted = true, edited = true)))
+        assertTrue(json.contains("\"timeMs\":1700000000000"))
+        assertTrue(json.contains("\"capturedAtMs\":1700000000000"))
+        assertTrue(json.contains("\"packageName\":\"com.whatsapp\""))
+        assertTrue(json.contains("\"conversationKey\":\"key-Alice\""))
+        assertTrue(json.contains("\"deleted\":true"))
+        assertTrue(json.contains("\"edited\":true"))
+        val plain = ExportUtils.toJson(listOf(msg("x")))
+        assertTrue(plain.contains("\"deleted\":false"))
+        assertTrue(plain.contains("\"edited\":false"))
     }
 
     @Test

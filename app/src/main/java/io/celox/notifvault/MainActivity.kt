@@ -37,6 +37,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import io.celox.notifvault.data.SettingsStore
 import io.celox.notifvault.ui.ConversationScreen
+import io.celox.notifvault.ui.FlaggedScreen
 import io.celox.notifvault.ui.HomeScreen
 import io.celox.notifvault.ui.OnboardingScreen
 import io.celox.notifvault.ui.SettingsScreen
@@ -157,10 +158,13 @@ private fun AppNav(vm: VaultViewModel) {
         composable("home") {
             HomeScreen(
                 vm = vm,
+                hasAccess = hasAccess,
                 onOpenConversation = { key, pkg ->
                     nav.navigate("chat/${enc(key)}/${enc(pkg)}")
                 },
-                onOpenSettings = { nav.navigate("settings") }
+                onOpenFlagged = { nav.navigate("flagged") },
+                onOpenSettings = { nav.navigate("settings") },
+                onGrantAccess = { PermissionUtils.openNotificationAccessSettings(context) }
             )
         }
         composable("chat/{key}/{pkg}") { entry ->
@@ -168,6 +172,15 @@ private fun AppNav(vm: VaultViewModel) {
                 vm = vm,
                 conversationKey = entry.arguments?.getString("key").orEmpty(),
                 pkg = entry.arguments?.getString("pkg").orEmpty(),
+                onBack = { nav.popBackStack() }
+            )
+        }
+        composable("flagged") {
+            FlaggedScreen(
+                vm = vm,
+                onOpenConversation = { key, pkg ->
+                    nav.navigate("chat/${enc(key)}/${enc(pkg)}")
+                },
                 onBack = { nav.popBackStack() }
             )
         }

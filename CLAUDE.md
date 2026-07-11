@@ -20,7 +20,7 @@ Single Gradle module (`:app`), Kotlin + Jetpack Compose, minSdk 26 / target+comp
 ./gradlew assembleDebug        # APK → app/build/outputs/apk/debug/
 ./gradlew installDebug         # build + install to connected device/emulator
 ./gradlew lint                 # Android lint
-./gradlew testDebugUnitTest    # JVM unit tests (MessageId, Deletion, ExportUtils, Format, SearchUtils)
+./gradlew testDebugUnitTest    # JVM unit tests (MessageId, Deletion, ExportUtils, VaultCodec, VaultBackup, Format, SearchUtils)
 ./gradlew testDebugUnitTest --tests "io.celox.notifvault.notif.MessageIdTest"   # single test class
 ```
 
@@ -49,7 +49,14 @@ The whole app is one pipeline: a system notification → a stored, encrypted row
    original it flags; parallel per-notification coroutines could interleave at suspension points). On
    `onListenerConnected` it snapshots the current shade; on disconnect it calls `requestRebind` because
    Samsung One UI aggressively kills listeners. It applies the extractor's `messages` (insert) and
-   `deletions` (`dao.markDeleted`).
+   `deletions` (`dao.markDeleted`). **Edit detection:** for every row `insertAll` *actually* inserted
+   (rowId != −1) it calls `dao.markEditSuperseded(...)` — an edit re-arrives with the same
+   conversationKey+sender+messageTime but new text (new content hash → new row), so older siblings get
+   flagged `editSuperseded`; a brand-new message matches nothing. A deletion placeholder after an edit
+   flags *all* stored versions (intended). **Health:** the companion `listenerConnected` StateFlow feeds
+   the Home banner and the Settings status section (UI runs in the same process), and a throttled
+   heartbeat (≤ 1 write/min) persists `SettingsStore.lastCaptureAt`. `onCreate` also kicks
+   `RetentionPruner.pruneIfDue` (the service runs even when the UI never opens).
 
 2. **`notif/MessageExtractor`** — `extract()` returns an **`ExtractResult(messages, deletions)`**. Skips
    `FLAG_GROUP_SUMMARY`. **Prefers `NotificationCompat.MessagingStyle`** (gives per-message sender + real
@@ -73,30 +80,43 @@ The whole app is one pipeline: a system notification → a stored, encrypted row
    re-delivered inside many successive notifications collapses to exactly one row. Don't change the hash
    inputs or conflict strategy — it silently re-duplicates the vault.
 
-4. **`data/`** — Room (`AppDatabase` **v3**, single `messages` table) over **SQLCipher**. `DatabaseProvider`
+4. **`data/`** — Room (`AppDatabase` **v4**, single `messages` table) over **SQLCipher**. `DatabaseProvider`
    is a singleton that loads the native `sqlcipher` lib, builds the DB with a 32-byte random passphrase stored
    in `EncryptedSharedPreferences` (AES-256-GCM, Android Keystore). **Destructive migration only from v1**
    (`fallbackToDestructiveMigrationFrom(1)` — intentional clean slate, old rows were grouped by the
    unreliable title); every later bump needs a real `Migration` (v2→3: `MIGRATION_2_3` swaps the index set
-   for a composite `conversationKey+packageName+messageTime`). `exportSchema = true` writes the expected
+   for a composite `conversationKey+packageName+messageTime`; v3→4: `MIGRATION_3_4` adds the
+   `editSuperseded` column). `exportSchema = true` writes the expected
    schema JSON to `app/schemas/` — hand-written migration DDL must match it exactly (verify index names
    there). `MessageDao` groups/filters by **`conversationKey`** (the overview's bare columns
-   resolve to the `MAX(messageTime)` row → latest title + last message; `SUM(deletionSuspected)` →
-   `deletedCount` per chat). `markDeleted(key, sender, time)` flags a stored original when a deletion
-   placeholder arrives. `SettingsStore` (DataStore) holds the
-   monitored-package set, capture-all flag, and biometric-lock flag; `KNOWN_MESSENGERS` is the Settings toggle
-   list, `DEFAULT_PACKAGES` the WhatsApp default.
+   resolve to the `MAX(messageTime)` row → latest title + last message; `SUM(deletionSuspected)` /
+   `SUM(editSuperseded)` → `deletedCount`/`editedCount` per chat). `markDeleted(key, sender, time)` flags a
+   stored original when a deletion placeholder arrives; `markEditSuperseded(key, pkg, sender, time, newId)`
+   flags older versions of an edited message; `flagged()` feeds the global "Aufgedeckt" view;
+   `pruneOlderThan` + `RetentionPruner` implement the optional retention policy (default off, throttled to
+   one run per day via `lastPruneAt`); `applyDeletedFlags`/`applyEditedFlags` merge flags on backup restore.
+   `SettingsStore` (DataStore) holds the monitored-package set, capture-all flag, biometric-lock flag,
+   `lastCaptureAt` heartbeat, `retentionDays` (0 = forever) and `lastPruneAt`; `KNOWN_MESSENGERS` is the
+   Settings toggle list, `DEFAULT_PACKAGES` the WhatsApp default.
 
 5. **`ui/`** — Compose. `MainActivity` is a **`FragmentActivity`** (required by `BiometricPrompt`); it gates
    the app behind biometric/device-credential unlock when enabled (and **re-locks on `ON_STOP`**), then a
-   `NavHost` routes onboarding → home → chat → settings. Nav args are the **`conversationKey` + package**
-   (not the title; the chat screen derives the title from its latest message), encoded **exactly once**
-   with `Uri.encode` — Navigation Uri-decodes route args itself, so there is deliberately no manual decode
-   (a second `URLDecoder` pass corrupted keys containing `+` and crashed on `%`).
+   `NavHost` routes onboarding → home → chat / flagged → settings. Nav args are the **`conversationKey` +
+   package** (not the title; the chat screen derives the title from its latest message), encoded **exactly
+   once** with `Uri.encode` — Navigation Uri-decodes route args itself, so there is deliberately no manual
+   decode (a second `URLDecoder` pass corrupted keys containing `+` and crashed on `%`).
    `ConversationScreen` renders a chat archive (date separators, sender-run grouping, per-sender colors via
-   `Format.identityColor`); `HomeScreen` shows colored `Avatar`s + search with match highlighting; destructive
-   actions (delete chat / clear all) require confirmation dialogs. `VaultViewModel` (`AndroidViewModel`) owns
-   the DAO Flows as `StateFlow`s and the **debounced** search query. **Motion:** `theme/Motion.kt` is a small
+   `Format.identityColor`; deleted bubbles in `errorContainer`, edit-superseded ones in `tertiaryContainer`;
+   **long-press** a bubble → copy [sensitive-flagged clipboard on API 33+] / share / details incl.
+   `capturedAt`; ⋮ menu exports just this chat). `HomeScreen` shows colored `Avatar`s + search with match
+   highlighting, a **capture-health banner** (access revoked → error + button; access ok but listener
+   unbound → quiet hint), **per-app `FilterChip`s** (only when ≥ 2 apps have chats) and 🗑/✏️ badges.
+   `FlaggedScreen` ("Aufgedeckt") lists all deleted/edited originals globally. `SettingsScreen` adds a
+   Status section (access / listener / last capture), the retention picker, and **encrypted backup/restore**
+   via SAF (`CreateDocument`/`OpenDocument` + passphrase dialogs; results in a dialog). Destructive
+   actions (delete chat / clear all / retention) require confirmation. `VaultViewModel` (`AndroidViewModel`)
+   owns the DAO Flows as `StateFlow`s, the **debounced** search query, and `importBackup` (insert-IGNORE
+   merge + flag re-apply, chunked ≤ 500 ids per UPDATE). **Motion:** `theme/Motion.kt` is a small
    spring-physics system (M3-Expressive-style tokens — `spatial` may overshoot for position/size/shape,
    `effects` is high-damping for color/alpha; the public `MaterialExpressiveTheme`/`MotionScheme` only ship on
    material3 1.5.0-alpha, so we stay on stable 1.3.x and roll our own). Use these specs, not fixed `tween`s,
@@ -106,14 +126,19 @@ The whole app is one pipeline: a system notification → a stored, encrypted row
    `Format.kt` (date/time, `identityColor`, `initials`). Theme in `ui/theme/`.
 
 6. **`util/`** — `PermissionUtils` (notification-access check via `enabled_notification_listeners`, battery-
-   optimization exemption), `ExportUtils` (hand-rolled CSV/JSON serialization incl. control-char escaping;
-   serialization runs inside `Dispatchers.IO` in `SettingsScreen.export`), and `SearchUtils`: `escapeLike`
-   (escapes LIKE `%`/`_`, paired with `ESCAPE '\'` in `MessageDao.search`) + `findMatches` (case-insensitive
-   highlight ranges via `indexOf(ignoreCase)` — never index into a `lowercase()` copy, case folding can
-   change string length). Both unit-tested.
+   optimization exemption), `ExportUtils` (hand-rolled, **lossless** CSV/JSON serialization incl.
+   control-char escaping, capture time and deleted/edited verdicts), `ShareExport` (shared
+   serialize-on-IO + FileProvider share-sheet helper used by the full and per-chat exports),
+   `VaultCodec` + `VaultBackup` (**encrypted vault backup**: versioned escaped-TSV payload → gzip →
+   AES-256-GCM, key from PBKDF2WithHmacSHA256 [210k iterations]; file layout `"KPV1" | salt(16) | iv(12) |
+   ciphertext`, extension `.kpvault`; wrong passphrase/tampering throws via the GCM tag; both framework-free
+   and unit-tested — restore is idempotent because ids are content hashes + insert IGNORE), and
+   `SearchUtils`: `escapeLike` (escapes LIKE `%`/`_`, paired with `ESCAPE '\'` in `MessageDao.search`) +
+   `findMatches` (case-insensitive highlight ranges via `indexOf(ignoreCase)` — never index into a
+   `lowercase()` copy, case folding can change string length).
 
 `NotifVaultApp` (Application) warms up `DatabaseProvider` at startup (on a background thread — Keystore
-work would delay app start) so the listener can write immediately.
+work would delay app start) so the listener can write immediately, then runs `RetentionPruner.pruneIfDue`.
 
 ## Things to keep in mind
 

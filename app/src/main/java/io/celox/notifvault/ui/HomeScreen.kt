@@ -1,5 +1,6 @@
 package io.celox.notifvault.ui
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,12 +13,16 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SearchOff
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -26,11 +31,13 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -46,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.celox.notifvault.data.CapturedMessage
 import io.celox.notifvault.data.ConversationSummary
+import io.celox.notifvault.service.NotificationCaptureService
 import io.celox.notifvault.ui.theme.Motion
 import io.celox.notifvault.util.findMatches
 
@@ -53,21 +61,30 @@ import io.celox.notifvault.util.findMatches
 @Composable
 fun HomeScreen(
     vm: VaultViewModel,
+    hasAccess: Boolean,
     onOpenConversation: (String, String) -> Unit,
-    onOpenSettings: () -> Unit
+    onOpenFlagged: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onGrantAccess: () -> Unit
 ) {
     val conversations by vm.conversations.collectAsStateWithLifecycle()
     val results by vm.searchResults.collectAsStateWithLifecycle()
     val total by vm.totalCount.collectAsStateWithLifecycle()
+    val listenerConnected by NotificationCaptureService.listenerConnected.collectAsStateWithLifecycle()
     // Saveable so rotation keeps the field and the ViewModel query in sync.
     var query by rememberSaveable { mutableStateOf("") }
     LaunchedEffect(query) { vm.setQuery(query) }
+    // Per-app filter ("" = all); only offered once more than one app has conversations.
+    var appFilter by rememberSaveable { mutableStateOf("") }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Kleene Petze") },
                 actions = {
+                    IconButton(onClick = onOpenFlagged) {
+                        Icon(Icons.Default.History, "Aufgedeckt")
+                    }
                     IconButton(onClick = onOpenSettings) {
                         Icon(Icons.Default.Settings, "Einstellungen")
                     }
@@ -76,6 +93,21 @@ fun HomeScreen(
         }
     ) { pad ->
         Column(Modifier.padding(pad).fillMaxSize()) {
+            if (!hasAccess) {
+                CaptureBanner(
+                    text = "Benachrichtigungszugriff fehlt — es wird nichts mehr gesichert.",
+                    error = true,
+                    actionLabel = "Erlauben",
+                    onAction = onGrantAccess
+                )
+            } else if (!listenerConnected) {
+                CaptureBanner(
+                    text = "Erfassung derzeit inaktiv — das System hat den Dienst getrennt. " +
+                        "Verbindet sich meist von selbst neu.",
+                    error = false
+                )
+            }
+
             OutlinedTextField(
                 value = query,
                 onValueChange = { query = it },
@@ -86,13 +118,43 @@ fun HomeScreen(
                 shape = MaterialTheme.shapes.extraLarge
             )
 
+            // pkg → label, insertion-ordered by most recent chat (conversations is lastTime DESC).
+            val apps = remember(conversations) {
+                val m = LinkedHashMap<String, String>()
+                for (c in conversations) m.putIfAbsent(c.packageName, c.appLabel)
+                m
+            }
+            if (apps.size >= 2 && query.isBlank()) {
+                Row(
+                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(
+                        selected = appFilter.isEmpty(),
+                        onClick = { appFilter = "" },
+                        label = { Text("Alle") }
+                    )
+                    for ((pkg, label) in apps) {
+                        FilterChip(
+                            selected = appFilter == pkg,
+                            onClick = { appFilter = if (appFilter == pkg) "" else pkg },
+                            label = { Text(label) }
+                        )
+                    }
+                }
+            }
+            val shown =
+                if (appFilter.isEmpty()) conversations
+                else conversations.filter { it.packageName == appFilter }
+
             when {
                 query.isNotBlank() -> SearchResults(query, results, onOpenConversation)
                 conversations.isEmpty() -> EmptyState(total)
                 else -> LazyColumn(Modifier.fillMaxSize()) {
                     // Space separator keeps the composed key unambiguous (package names
                     // contain no spaces; bare concatenation could collide).
-                    items(conversations, key = { "${it.conversationKey} ${it.packageName}" }) { c ->
+                    items(shown, key = { "${it.conversationKey} ${it.packageName}" }) { c ->
                         // Spring placement so a chat springing to the top on a new message
                         // (and rows above sliding down) reads as physical, not a hard cut.
                         Column(
@@ -110,6 +172,36 @@ fun HomeScreen(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+/** Capture-health banner: loud (error) when access is revoked, quiet when only unbound. */
+@Composable
+private fun CaptureBanner(
+    text: String,
+    error: Boolean,
+    actionLabel: String? = null,
+    onAction: (() -> Unit)? = null
+) {
+    Surface(
+        color = if (error) MaterialTheme.colorScheme.errorContainer
+        else MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = if (error) MaterialTheme.colorScheme.onErrorContainer
+        else MaterialTheme.colorScheme.onSecondaryContainer,
+        shape = MaterialTheme.shapes.large,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp)
+    ) {
+        Row(
+            Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.Outlined.Warning, null, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.width(10.dp))
+            Text(text, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+            if (actionLabel != null && onAction != null) {
+                TextButton(onClick = onAction) { Text(actionLabel) }
             }
         }
     }
@@ -230,6 +322,10 @@ private fun ConversationRow(c: ConversationSummary, onClick: () -> Unit) {
                     DeletedBadge(c.deletedCount)
                     Spacer(Modifier.width(6.dp))
                 }
+                if (c.editedCount > 0) {
+                    EditedBadge(c.editedCount)
+                    Spacer(Modifier.width(6.dp))
+                }
                 CountBadge(c.messageCount)
             }
             Text(
@@ -250,6 +346,22 @@ private fun DeletedBadge(count: Int) {
     ) {
         Text(
             "🗑 $count",
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+        )
+    }
+}
+
+@Composable
+private fun EditedBadge(count: Int) {
+    Surface(
+        color = MaterialTheme.colorScheme.tertiaryContainer,
+        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+        shape = MaterialTheme.shapes.extraLarge
+    ) {
+        Text(
+            "✏️ $count",
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Medium,
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)

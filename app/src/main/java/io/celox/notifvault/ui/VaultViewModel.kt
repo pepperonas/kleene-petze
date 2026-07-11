@@ -33,6 +33,10 @@ class VaultViewModel(app: Application) : AndroidViewModel(app) {
     val totalCount: StateFlow<Int> =
         dao.count().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
+    /** Everything "uncovered": deleted-by-sender originals + earlier versions of edits. */
+    val flagged: StateFlow<List<CapturedMessage>> =
+        dao.flagged().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     private val query = MutableStateFlow("")
 
     val searchResults: StateFlow<List<CapturedMessage>> = query
@@ -59,4 +63,29 @@ class VaultViewModel(app: Application) : AndroidViewModel(app) {
     fun setCaptureAll(value: Boolean) = viewModelScope.launch { settings.setCaptureAll(value) }
     fun setMonitored(packages: Set<String>) = viewModelScope.launch { settings.setMonitored(packages) }
     fun setBiometric(value: Boolean) = viewModelScope.launch { settings.setBiometricLock(value) }
+    fun setRetentionDays(days: Int) = viewModelScope.launch { settings.setRetentionDays(days) }
+
+    /**
+     * Restores a decoded backup. Insert-IGNORE + content-hash ids make this an idempotent
+     * merge; for rows that already existed unflagged, the backup's deleted/edited flags are
+     * re-applied separately (IGNORE keeps the existing row untouched).
+     * @return imported count to already-present count.
+     */
+    suspend fun importBackup(messages: List<CapturedMessage>): Pair<Int, Int> {
+        val rowIds = dao.insertAll(messages)
+        var imported = 0
+        val deletedIds = mutableListOf<String>()
+        val editedIds = mutableListOf<String>()
+        for ((i, m) in messages.withIndex()) {
+            if (rowIds[i] != -1L) imported++
+            else {
+                if (m.deletionSuspected) deletedIds += m.id
+                if (m.editSuperseded) editedIds += m.id
+            }
+        }
+        // Chunked: SQLite caps bound variables per statement (999 classic limit).
+        deletedIds.chunked(500).forEach { dao.applyDeletedFlags(it) }
+        editedIds.chunked(500).forEach { dao.applyEditedFlags(it) }
+        return imported to (messages.size - imported)
+    }
 }

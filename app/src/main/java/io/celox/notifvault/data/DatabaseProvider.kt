@@ -33,7 +33,7 @@ object DatabaseProvider {
 
         return Room.databaseBuilder(context, AppDatabase::class.java, "vault.db")
             .openHelperFactory(factory)
-            .addMigrations(MIGRATION_2_3)
+            .addMigrations(MIGRATION_2_3, MIGRATION_3_4)
             // Destructive ONLY from v1 (intentional clean slate: old rows were grouped by the
             // unreliable title). Every later schema bump needs a real migration — a blanket
             // fallbackToDestructiveMigration() would silently wipe the whole vault.
@@ -52,6 +52,14 @@ object DatabaseProvider {
                 "CREATE INDEX IF NOT EXISTS `index_messages_conversationKey_packageName_messageTime` " +
                     "ON `messages` (`conversationKey`, `packageName`, `messageTime`)"
             )
+        }
+    }
+
+    // v4: editSuperseded marks earlier versions of edited messages. DDL matches
+    // app/schemas/…/4.json (NOT NULL + DEFAULT 0, no new index).
+    private val MIGRATION_3_4 = object : Migration(3, 4) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE `messages` ADD COLUMN `editSuperseded` INTEGER NOT NULL DEFAULT 0")
         }
     }
 

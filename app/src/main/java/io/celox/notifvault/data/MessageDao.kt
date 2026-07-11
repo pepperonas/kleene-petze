@@ -16,7 +16,8 @@ data class ConversationSummary(
     val lastText: String,
     val lastTime: Long,
     val messageCount: Int,
-    val deletedCount: Int       // messages in this chat detected as deleted by the sender
+    val deletedCount: Int,      // messages in this chat detected as deleted by the sender
+    val editedCount: Int        // earlier versions of messages the sender later edited
 )
 
 @Dao
@@ -32,7 +33,7 @@ interface MessageDao {
         """
         SELECT conversationKey, conversation, packageName, appLabel, isGroup,
                text AS lastText, MAX(messageTime) AS lastTime, COUNT(*) AS messageCount,
-               SUM(deletionSuspected) AS deletedCount
+               SUM(deletionSuspected) AS deletedCount, SUM(editSuperseded) AS editedCount
         FROM messages
         GROUP BY conversationKey, packageName
         ORDER BY lastTime DESC
@@ -83,4 +84,42 @@ interface MessageDao {
         """
     )
     suspend fun markDeleted(conversationKey: String, sender: String, messageTime: Long): Int
+
+    // Edit detection: an edited message re-arrives with the same chat + sender + original
+    // timestamp but new text (→ new content-hash row). Called after each *actual* insert,
+    // this flags any older sibling rows as superseded. For a brand-new message it matches
+    // nothing (0 rows) — the composite index keeps that check cheap.
+    @Query(
+        """
+        UPDATE messages SET editSuperseded = 1
+        WHERE conversationKey = :conversationKey AND packageName = :pkg
+          AND sender = :sender AND messageTime = :messageTime AND id != :newId
+        """
+    )
+    suspend fun markEditSuperseded(
+        conversationKey: String, pkg: String, sender: String, messageTime: Long, newId: String
+    ): Int
+
+    // Everything the vault has "uncovered": deleted-by-sender originals and earlier
+    // versions of edited messages, newest first (global "Aufgedeckt" view).
+    @Query(
+        """
+        SELECT * FROM messages
+        WHERE deletionSuspected = 1 OR editSuperseded = 1
+        ORDER BY messageTime DESC
+        """
+    )
+    fun flagged(): Flow<List<CapturedMessage>>
+
+    // Retention: drop messages older than the cutoff (only ever called with retention enabled).
+    @Query("DELETE FROM messages WHERE messageTime < :cutoff")
+    suspend fun pruneOlderThan(cutoff: Long): Int
+
+    // Restore path: re-apply flags from a backup to rows that already existed unflagged
+    // (insert IGNORE keeps the existing row, so flags must be merged separately).
+    @Query("UPDATE messages SET deletionSuspected = 1 WHERE id IN (:ids)")
+    suspend fun applyDeletedFlags(ids: List<String>)
+
+    @Query("UPDATE messages SET editSuperseded = 1 WHERE id IN (:ids)")
+    suspend fun applyEditedFlags(ids: List<String>)
 }

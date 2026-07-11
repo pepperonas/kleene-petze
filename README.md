@@ -86,9 +86,15 @@ farbigen Absendern.
 | Absender + echter Zeitstempel | ✅ via MessagingStyle |
 | Korrekte Chat-Gruppierung (stabiler `conversationKey`) | ✅ |
 | Chat-Ansicht: Datumstrenner, Sprecher-Gruppierung, Avatare | ✅ |
-| Volltextsuche (mit Treffer-Hervorhebung), Export (CSV/JSON) | ✅ |
+| Volltextsuche (mit Treffer-Hervorhebung), App-Filter in der Übersicht | ✅ |
+| Export (CSV/JSON, verlustfrei inkl. Erfassungszeit + Gelöscht-/Bearbeitet-Status), auch pro Chat | ✅ |
+| Nachricht kopieren/teilen + Details (Long-Press auf die Sprechblase) | ✅ |
 | Verschlüsselung (SQLCipher/AES-256), Biometrie-Sperre (re-lockt im Hintergrund) | ✅ |
-| **Gelöschte Nachrichten markieren** (Original hervorgehoben + 🗑-Badge in der Übersicht) | ⚠️ nur wenn die Nachricht gelöscht wird, *während sie noch ungelesen im Benachrichtigungs-Shade liegt* (dann ersetzt WhatsApp den Text durch „…gelöscht", den wir der gespeicherten Originalnachricht zuordnen) |
+| **Verschlüsseltes Backup/Restore** (`.kpvault`, Passphrase → PBKDF2 + AES-256-GCM; Import ist merge-sicher) | ✅ |
+| Capture-Status (Zugriff/Dienst/letzte Erfassung) + Warn-Banner | ✅ |
+| Optionale Aufbewahrungsdauer (30–365 Tage, Standard: unbegrenzt) | ✅ |
+| **Gelöschte Nachrichten markieren** (Original hervorgehoben + 🗑-Badge, gesammelt in der „Aufgedeckt"-Ansicht) | ⚠️ nur wenn die Nachricht gelöscht wird, *während sie noch ungelesen im Benachrichtigungs-Shade liegt* (dann ersetzt WhatsApp den Text durch „…gelöscht", den wir der gespeicherten Originalnachricht zuordnen); Platzhalter in 10 Sprachen erkannt |
+| **Bearbeitete Nachrichten aufdecken** (frühere Version bleibt sichtbar, ✏️-Markierung) | ⚠️ gleiche Bedingung: die Bearbeitung muss eine Benachrichtigung auslösen, solange der Chat ungelesen ist |
 | **Medien** (Fotos, Sprach-/Videonachrichten) | ❌ technisch nicht möglich – stecken nicht in der Notification, Scoped Storage sperrt WhatsApps Medienordner |
 | Bereits gelesene Nachrichten, die später gelöscht werden | ❌ erzeugen keine Benachrichtigung → Löschung nicht erkennbar |
 | Stummgeschaltete Chats | ❌ erzeugen oft keine Benachrichtigung |
@@ -112,8 +118,10 @@ Reine JVM-Unit-Tests (kein Emulator nötig):
 ```
 
 Abgedeckt: Dedup-Schlüssel (`messageContentId`, mit fixem SHA-256-Anker), Löschungs-Platzhalter
-(`Deletion`), CSV-/JSON-Export-Escaping inkl. Steuerzeichen (`ExportUtils`), Datums-/Zeit- und
-Identitäts-Helfer (`Format`) sowie LIKE-Escaping und Such-Highlight-Ranges (`SearchUtils`).
+in 10 Sprachen (`Deletion`), CSV-/JSON-Export-Escaping inkl. Steuerzeichen (`ExportUtils`),
+Backup-Serialisierung Round-Trip (`VaultCodec`), Backup-Verschlüsselung inkl. Falsch-Passphrase-
+und Manipulations-Fällen (`VaultBackup`), Datums-/Zeit- und Identitäts-Helfer (`Format`) sowie
+LIKE-Escaping und Such-Highlight-Ranges (`SearchUtils`).
 
 ## Einrichtung auf dem Samsung S24 Ultra (wichtig)
 
@@ -137,16 +145,20 @@ One UI killt Hintergrunddienste sehr aggressiv. Damit kein Mitschnitt verloren g
 ## Projektstruktur
 
 ```
-data/    CapturedMessage (Entity, mit conversationKey), MessageDao, AppDatabase,
-         DatabaseProvider (SQLCipher), SettingsStore (DataStore)
+data/    CapturedMessage (Entity, mit conversationKey + editSuperseded), MessageDao,
+         AppDatabase (v4), DatabaseProvider (SQLCipher + Migrationen),
+         SettingsStore (DataStore), RetentionPruner (optionale Aufbewahrung)
 notif/   MessageExtractor – Notification → CapturedMessage(s)
          MessageId – stabiler Dedup-Inhalts-Hash (messageContentId)
-service/ NotificationCaptureService – der Listener
-ui/      Compose-Screens (Onboarding, Home, Conversation, Settings) + ViewModel,
-         Components (Avatar), Format (Datum/Zeit, Farben, Initialen)
-util/    PermissionUtils, ExportUtils, SearchUtils (LIKE-Escaping, Highlight-Ranges)
+         Deletion – Lösch-Platzhalter-Erkennung (10 Sprachen)
+service/ NotificationCaptureService – der Listener (Edit-Erkennung, Heartbeat, Status)
+ui/      Compose-Screens (Onboarding, Home, Conversation, Flagged/„Aufgedeckt", Settings)
+         + ViewModel, Components (Avatar), Format (Datum/Zeit, Farben, Initialen)
+util/    PermissionUtils, ExportUtils, ShareExport, SearchUtils,
+         VaultCodec + VaultBackup (verschlüsseltes Backup/Restore)
 schemas/ Room-Schema-JSON (Referenz für handgeschriebene Migrationen)
-src/test JUnit-Unit-Tests (MessageId, Deletion, ExportUtils, Format, SearchUtils)
+src/test JUnit-Unit-Tests (MessageId, Deletion, ExportUtils, VaultCodec, VaultBackup,
+         Format, SearchUtils)
 ```
 
 ## Release erstellen (Maintainer)

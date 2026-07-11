@@ -15,6 +15,22 @@ class DeletionTest {
     }
 
     @Test
+    fun `recognizes official WhatsApp placeholders in further languages`() {
+        assertTrue(isDeletionPlaceholder("Se eliminó este mensaje"))                 // ES
+        assertTrue(isDeletionPlaceholder("Eliminaste este mensaje"))                 // ES (own)
+        assertTrue(isDeletionPlaceholder("Ce message a été supprimé"))               // FR
+        assertTrue(isDeletionPlaceholder("Vous avez supprimé ce message"))           // FR (own)
+        assertTrue(isDeletionPlaceholder("Questo messaggio è stato eliminato"))      // IT
+        assertTrue(isDeletionPlaceholder("Hai eliminato questo messaggio"))          // IT (own)
+        assertTrue(isDeletionPlaceholder("Essa mensagem foi apagada"))               // PT-BR
+        assertTrue(isDeletionPlaceholder("Esta mensagem foi eliminada"))             // PT-PT
+        assertTrue(isDeletionPlaceholder("Dit bericht is verwijderd"))               // NL
+        assertTrue(isDeletionPlaceholder("Bu mesaj silindi"))                        // TR
+        assertTrue(isDeletionPlaceholder("Ta wiadomość została usunięta"))           // PL
+        assertTrue(isDeletionPlaceholder("Данное сообщение удалено"))                // RU
+    }
+
+    @Test
     fun `is case-insensitive and tolerates an emoji or prefix`() {
         assertTrue(isDeletionPlaceholder("THIS MESSAGE WAS DELETED"))
         assertTrue(isDeletionPlaceholder("🚫 This message was deleted"))

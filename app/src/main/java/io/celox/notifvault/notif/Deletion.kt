@@ -5,10 +5,32 @@ package io.celox.notifvault.notif
 // like "🚫 This message was deleted" is still recognised; the phrases are distinctive
 // enough not to collide with normal conversation.
 private val DELETION_MARKERS = listOf(
+    // English
     "this message was deleted",
-    "diese nachricht wurde gelöscht",
     "you deleted this message",
-    "du hast diese nachricht gelöscht"
+    // German
+    "diese nachricht wurde gelöscht",
+    "du hast diese nachricht gelöscht",
+    // Spanish
+    "se eliminó este mensaje",
+    "eliminaste este mensaje",
+    // French
+    "ce message a été supprimé",
+    "vous avez supprimé ce message",
+    // Italian
+    "questo messaggio è stato eliminato",
+    "hai eliminato questo messaggio",
+    // Portuguese (BR + PT)
+    "essa mensagem foi apagada",
+    "esta mensagem foi eliminada",
+    // Dutch
+    "dit bericht is verwijderd",
+    // Turkish
+    "bu mesaj silindi",
+    // Polish
+    "ta wiadomość została usunięta",
+    // Russian
+    "данное сообщение удалено"
 )
 
 /** True if [text] is a "this message was deleted" placeholder (any known language). */

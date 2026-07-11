@@ -12,13 +12,18 @@ object ExportUtils {
 
     fun toCsv(messages: List<CapturedMessage>): String {
         val fmt = dateFmt()
-        val sb = StringBuilder("Zeit;App;Chat;Absender;Gruppe;Text\n")
+        // Lossless: capture time and the deleted/edited verdicts are the app's core value —
+        // an export without them couldn't prove anything.
+        val sb = StringBuilder("Zeit;Erfasst;App;Chat;Absender;Gruppe;Gelöscht;Bearbeitet;Text\n")
         for (m in messages) {
             sb.append(fmt.format(Date(m.messageTime))).append(';')
+                .append(fmt.format(Date(m.capturedAt))).append(';')
                 .append(esc(m.appLabel)).append(';')
                 .append(esc(m.conversation)).append(';')
                 .append(esc(m.sender)).append(';')
                 .append(if (m.isGroup) "ja" else "nein").append(';')
+                .append(if (m.deletionSuspected) "ja" else "nein").append(';')
+                .append(if (m.editSuperseded) "ja" else "nein").append(';')
                 .append(esc(m.text)).append('\n')
         }
         return sb.toString()
@@ -30,10 +35,17 @@ object ExportUtils {
         messages.forEachIndexed { i, m ->
             sb.append("  {")
                 .append("\"time\":\"${fmt.format(Date(m.messageTime))}\",")
+                .append("\"timeMs\":${m.messageTime},")
+                .append("\"capturedAt\":\"${fmt.format(Date(m.capturedAt))}\",")
+                .append("\"capturedAtMs\":${m.capturedAt},")
                 .append("\"app\":\"${j(m.appLabel)}\",")
+                .append("\"packageName\":\"${j(m.packageName)}\",")
                 .append("\"chat\":\"${j(m.conversation)}\",")
+                .append("\"conversationKey\":\"${j(m.conversationKey)}\",")
                 .append("\"sender\":\"${j(m.sender)}\",")
                 .append("\"group\":${m.isGroup},")
+                .append("\"deleted\":${m.deletionSuspected},")
+                .append("\"edited\":${m.editSuperseded},")
                 .append("\"text\":\"${j(m.text)}\"")
                 .append("}")
             if (i < messages.lastIndex) sb.append(",")
