@@ -18,7 +18,7 @@ suspend fun shareExport(
     context: Context,
     messages: List<CapturedMessage>,
     csv: Boolean,
-    fileBaseName: String = "kleene-petze_export"
+    fileBaseName: String = ExportNaming.FULL_EXPORT_BASE
 ) {
     val uri = withContext(Dispatchers.IO) {
         val content = if (csv) ExportUtils.toCsv(messages) else ExportUtils.toJson(messages)

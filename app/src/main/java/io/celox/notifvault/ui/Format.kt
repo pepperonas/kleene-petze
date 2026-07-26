@@ -57,6 +57,22 @@ fun formatTimestamp(millis: Long): String = when (daysAgo(millis)) {
     else -> fullDateTimeFmt.format(Date(millis))
 }
 
+/**
+ * Relative age of an event ("vor 5 min"), used for the capture heartbeat in Settings; falls
+ * back to the absolute timestamp once it is more than a day old. [millis] <= 0 means "never".
+ * A timestamp in the future (clock change) reads as "gerade eben" rather than a negative age.
+ */
+fun formatRelativeSince(millis: Long, now: Long = System.currentTimeMillis()): String {
+    if (millis <= 0) return "noch nie"
+    val mins = (now - millis) / 60_000
+    return when {
+        mins < 1 -> "gerade eben"
+        mins < 60 -> "vor $mins min"
+        mins < 24 * 60 -> "vor ${mins / 60} h"
+        else -> formatTimestamp(millis)
+    }
+}
+
 // ---- Identity colors / initials -------------------------------------------
 
 // A small, deterministic palette that reads well on both light and dark surfaces.

@@ -117,11 +117,20 @@ Reine JVM-Unit-Tests (kein Emulator nötig):
 ./gradlew testDebugUnitTest
 ```
 
-Abgedeckt: Dedup-Schlüssel (`messageContentId`, mit fixem SHA-256-Anker), Löschungs-Platzhalter
-in 10 Sprachen (`Deletion`), CSV-/JSON-Export-Escaping inkl. Steuerzeichen (`ExportUtils`),
-Backup-Serialisierung Round-Trip (`VaultCodec`), Backup-Verschlüsselung inkl. Falsch-Passphrase-
-und Manipulations-Fällen (`VaultBackup`), Datums-/Zeit- und Identitäts-Helfer (`Format`) sowie
-LIKE-Escaping und Such-Highlight-Ranges (`SearchUtils`).
+Aktuell **107 Tests**, alle ohne Android-Framework (die kritische Logik liegt bewusst in
+frameworkfreien Modulen). Abgedeckt:
+
+- **Dedup-Schlüssel** – `messageContentId` mit fixem SHA-256-Anker (`MessageId`)
+- **Chat-Gruppierung** – Shortcut-ID → Tag → Titel → App-Label, Sender-/Titel-Auflösung (`Grouping`)
+- **Lösch-Platzhalter** in 10 Sprachen inkl. Beinahe-Treffern, die *nicht* anschlagen dürfen (`Deletion`)
+- **Export** – CSV-/JSON-Escaping inkl. Steuerzeichen, verlustfreie Felder (`ExportUtils`)
+- **Dateinamen** – Chat-Titel als Dateiname: keine Pfadtrenner, kein `..`, Längenlimit (`ExportNaming`)
+- **Backup-Serialisierung** – Round-Trip inkl. Tabs/Newlines/Unicode, defekte Zeilen (`VaultCodec`)
+- **Backup-Verschlüsselung** – Round-Trip, falsche Passphrase, manipulierte Bytes (`VaultBackup`)
+- **Restore-Merge** – was importiert wird und welche Flags nachgezogen werden (`BackupMerge`)
+- **Aufbewahrung** – wann geprunt wird und ab welchem Stichtag (`RetentionPolicy`)
+- **Formatierung** – Datum/Zeit, relative „letzte Erfassung", Farben/Initialen (`Format`)
+- **Suche** – LIKE-Escaping und Highlight-Ranges (`SearchUtils`)
 
 ## Einrichtung auf dem Samsung S24 Ultra (wichtig)
 
@@ -147,18 +156,20 @@ One UI killt Hintergrunddienste sehr aggressiv. Damit kein Mitschnitt verloren g
 ```
 data/    CapturedMessage (Entity, mit conversationKey + editSuperseded), MessageDao,
          AppDatabase (v4), DatabaseProvider (SQLCipher + Migrationen),
-         SettingsStore (DataStore), RetentionPruner (optionale Aufbewahrung)
+         SettingsStore (DataStore), RetentionPruner + RetentionPolicy (Aufbewahrung),
+         BackupMerge (Restore-Plan: importiert vs. Flags nachziehen)
 notif/   MessageExtractor – Notification → CapturedMessage(s)
          MessageId – stabiler Dedup-Inhalts-Hash (messageContentId)
+         Grouping – Chat-Schlüssel/Titel/Sender-Auflösung (frameworkfrei)
          Deletion – Lösch-Platzhalter-Erkennung (10 Sprachen)
 service/ NotificationCaptureService – der Listener (Edit-Erkennung, Heartbeat, Status)
 ui/      Compose-Screens (Onboarding, Home, Conversation, Flagged/„Aufgedeckt", Settings)
          + ViewModel, Components (Avatar), Format (Datum/Zeit, Farben, Initialen)
-util/    PermissionUtils, ExportUtils, ShareExport, SearchUtils,
+util/    PermissionUtils, ExportUtils, ShareExport, ExportNaming, SearchUtils,
          VaultCodec + VaultBackup (verschlüsseltes Backup/Restore)
 schemas/ Room-Schema-JSON (Referenz für handgeschriebene Migrationen)
-src/test JUnit-Unit-Tests (MessageId, Deletion, ExportUtils, VaultCodec, VaultBackup,
-         Format, SearchUtils)
+src/test JUnit-Unit-Tests (MessageId, Grouping, Deletion, ExportUtils, ExportNaming,
+         VaultCodec, VaultBackup, BackupMerge, RetentionPolicy, Format, SearchUtils)
 ```
 
 ## Release erstellen (Maintainer)

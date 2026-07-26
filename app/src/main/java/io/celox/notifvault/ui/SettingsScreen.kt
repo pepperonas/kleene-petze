@@ -52,9 +52,11 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.celox.notifvault.data.RetentionPolicy
 import io.celox.notifvault.data.SettingsStore
 import io.celox.notifvault.service.NotificationCaptureService
 import io.celox.notifvault.ui.theme.Motion
+import io.celox.notifvault.util.ExportNaming
 import io.celox.notifvault.util.PermissionUtils
 import io.celox.notifvault.util.VaultBackup
 import io.celox.notifvault.util.VaultCodec
@@ -283,7 +285,7 @@ fun SettingsScreen(vm: VaultViewModel, onBack: () -> Unit) {
                 backupPassDialog = false
                 backupPass = pass
                 val date = SimpleDateFormat("yyyy-MM-dd", Locale.GERMANY).format(Date())
-                backupCreator.launch("kleene-petze-$date.${VaultBackup.FILE_EXTENSION}")
+                backupCreator.launch(ExportNaming.backupFileName(date))
             },
             onDismiss = { backupPassDialog = false }
         )
@@ -352,16 +354,7 @@ private fun StatusRow(label: String, ok: Boolean, detail: String, action: (() ->
     }
 }
 
-private fun formatLastCapture(millis: Long): String {
-    if (millis <= 0) return "noch nie"
-    val mins = (System.currentTimeMillis() - millis) / 60_000
-    return when {
-        mins < 1 -> "gerade eben"
-        mins < 60 -> "vor $mins min"
-        mins < 24 * 60 -> "vor ${mins / 60} h"
-        else -> formatTimestamp(millis)
-    }
-}
+private fun formatLastCapture(millis: Long): String = formatRelativeSince(millis)
 
 @Composable
 private fun RetentionRow(days: Int, onClick: () -> Unit) {
@@ -379,7 +372,7 @@ private fun RetentionRow(days: Int, onClick: () -> Unit) {
 
 @Composable
 private fun RetentionDialog(current: Int, onSelect: (Int) -> Unit, onDismiss: () -> Unit) {
-    val options = listOf(0, 30, 90, 180, 365)
+    val options = RetentionPolicy.OPTIONS
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Aufbewahrungsdauer") },

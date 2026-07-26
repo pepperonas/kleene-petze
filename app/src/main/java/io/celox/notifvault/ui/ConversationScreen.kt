@@ -57,6 +57,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.celox.notifvault.data.CapturedMessage
 import io.celox.notifvault.ui.theme.Motion
+import io.celox.notifvault.util.ExportNaming
 import io.celox.notifvault.util.shareExport
 import kotlinx.coroutines.launch
 
@@ -397,7 +398,4 @@ private fun DetailRow(label: String, value: String) {
 }
 
 /** Safe file base name for a per-chat export ("Anna & Ben 👨‍👩‍👧" → kleene-petze_Anna_Ben). */
-private fun exportName(title: String): String {
-    val safe = title.replace(Regex("[^A-Za-z0-9äöüÄÖÜß]+"), "_").trim('_').take(40)
-    return if (safe.isEmpty()) "kleene-petze_chat" else "kleene-petze_$safe"
-}
+private fun exportName(title: String): String = ExportNaming.chatExportBase(title)

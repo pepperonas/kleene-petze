@@ -82,6 +82,38 @@ class FormatTest {
         assertTrue(formatClock(at(2024, Calendar.JUNE, 15, 9, 5)).matches(Regex("\\d{2}:\\d{2}")))
     }
 
+    // ---- formatRelativeSince (capture heartbeat) ----
+
+    @Test
+    fun `a missing heartbeat reads as never`() {
+        assertEquals("noch nie", formatRelativeSince(0, now = 1_000_000))
+        assertEquals("noch nie", formatRelativeSince(-1, now = 1_000_000))
+    }
+
+    @Test
+    fun `relative age steps from minutes to hours`() {
+        val now = 1_800_000_000_000L
+        assertEquals("gerade eben", formatRelativeSince(now, now))
+        assertEquals("gerade eben", formatRelativeSince(now - 59_000, now))
+        assertEquals("vor 1 min", formatRelativeSince(now - 60_000, now))
+        assertEquals("vor 59 min", formatRelativeSince(now - 59 * 60_000, now))
+        assertEquals("vor 1 h", formatRelativeSince(now - 60 * 60_000, now))
+        assertEquals("vor 23 h", formatRelativeSince(now - 23 * 60 * 60_000L, now))
+    }
+
+    @Test
+    fun `beyond a day it falls back to an absolute timestamp`() {
+        val now = 1_800_000_000_000L
+        val old = now - 3 * 24 * 60 * 60_000L
+        assertEquals(formatTimestamp(old), formatRelativeSince(old, now))
+    }
+
+    @Test
+    fun `a heartbeat in the future does not render a negative age`() {
+        val now = 1_800_000_000_000L
+        assertEquals("gerade eben", formatRelativeSince(now + 60_000, now))
+    }
+
     // ---- identityColor ----
 
     @Test

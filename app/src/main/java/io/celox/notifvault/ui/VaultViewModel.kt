@@ -3,6 +3,7 @@ package io.celox.notifvault.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import io.celox.notifvault.data.BackupMerge
 import io.celox.notifvault.data.CapturedMessage
 import io.celox.notifvault.data.ConversationSummary
 import io.celox.notifvault.data.DatabaseProvider
@@ -72,20 +73,9 @@ class VaultViewModel(app: Application) : AndroidViewModel(app) {
      * @return imported count to already-present count.
      */
     suspend fun importBackup(messages: List<CapturedMessage>): Pair<Int, Int> {
-        val rowIds = dao.insertAll(messages)
-        var imported = 0
-        val deletedIds = mutableListOf<String>()
-        val editedIds = mutableListOf<String>()
-        for ((i, m) in messages.withIndex()) {
-            if (rowIds[i] != -1L) imported++
-            else {
-                if (m.deletionSuspected) deletedIds += m.id
-                if (m.editSuperseded) editedIds += m.id
-            }
-        }
-        // Chunked: SQLite caps bound variables per statement (999 classic limit).
-        deletedIds.chunked(500).forEach { dao.applyDeletedFlags(it) }
-        editedIds.chunked(500).forEach { dao.applyEditedFlags(it) }
-        return imported to (messages.size - imported)
+        val plan = BackupMerge.plan(messages, dao.insertAll(messages))
+        plan.deletedIds.chunked(BackupMerge.FLAG_CHUNK).forEach { dao.applyDeletedFlags(it) }
+        plan.editedIds.chunked(BackupMerge.FLAG_CHUNK).forEach { dao.applyEditedFlags(it) }
+        return plan.imported to plan.alreadyPresent
     }
 }

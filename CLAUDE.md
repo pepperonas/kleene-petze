@@ -20,7 +20,7 @@ Single Gradle module (`:app`), Kotlin + Jetpack Compose, minSdk 26 / target+comp
 ./gradlew assembleDebug        # APK → app/build/outputs/apk/debug/
 ./gradlew installDebug         # build + install to connected device/emulator
 ./gradlew lint                 # Android lint
-./gradlew testDebugUnitTest    # JVM unit tests (MessageId, Deletion, ExportUtils, VaultCodec, VaultBackup, Format, SearchUtils)
+./gradlew testDebugUnitTest    # 107 JVM unit tests (MessageId, Grouping, Deletion, ExportUtils, ExportNaming, VaultCodec, VaultBackup, BackupMerge, RetentionPolicy, Format, SearchUtils)
 ./gradlew testDebugUnitTest --tests "io.celox.notifvault.notif.MessageIdTest"   # single test class
 ```
 
@@ -63,7 +63,10 @@ The whole app is one pipeline: a system notification → a stored, encrypted row
    timestamp + bundled back-history); falls back to title/`EXTRA_TEXT_LINES`/`EXTRA_TEXT`. **Derives a stable
    `conversationKey`** for grouping — `notification.shortcutId` → `sbn.tag` → display title — because the title
    (`conversationTitle`) is null for most 1:1 WhatsApp chats and sometimes missing for groups; grouping by
-   title mixed distinct chats and split groups per-sender. The title is display-only. **Deletion detection:**
+   title mixed distinct chats and split groups per-sender. The title is display-only. Those resolution rules
+   live in **`notif/Grouping.kt`** (`stableKeyOf`/`senderNameOf`/`displayTitleOf`/`conversationKeyOf`) —
+   framework-free so `GroupingTest` can pin them without a `StatusBarNotification`; the extractor only wires
+   the notification fields into them. **Deletion detection:**
    when a still-unread message is deleted, WhatsApp re-posts the notification with the text replaced by a
    placeholder (`notif/Deletion.isDeletionPlaceholder`, unit-tested) while keeping the original sender +
    timestamp; the extractor emits a `DeletionMark(conversationKey, sender, messageTime)` instead of storing
@@ -95,6 +98,11 @@ The whole app is one pipeline: a system notification → a stored, encrypted row
    flags older versions of an edited message; `flagged()` feeds the global "Aufgedeckt" view;
    `pruneOlderThan` + `RetentionPruner` implement the optional retention policy (default off, throttled to
    one run per day via `lastPruneAt`); `applyDeletedFlags`/`applyEditedFlags` merge flags on backup restore.
+   The two decisions that are pure logic live next to them as testable seams: **`RetentionPolicy`**
+   (`isDue`/`cutoff`/`OPTIONS` — a `lastPruneAt` in the *future*, i.e. the clock moved back, also counts as
+   due so pruning can't stall) and **`BackupMerge.plan(messages, rowIds)`** (which rows were genuinely
+   imported vs. which already-present rows need their deleted/edited flags re-applied; a short rowId list
+   degrades to "skipped" instead of crashing a restore).
    `SettingsStore` (DataStore) holds the monitored-package set, capture-all flag, biometric-lock flag,
    `lastCaptureAt` heartbeat, `retentionDays` (0 = forever) and `lastPruneAt`; `KNOWN_MESSENGERS` is the
    Settings toggle list, `DEFAULT_PACKAGES` the WhatsApp default.
@@ -116,7 +124,7 @@ The whole app is one pipeline: a system notification → a stored, encrypted row
    via SAF (`CreateDocument`/`OpenDocument` + passphrase dialogs; results in a dialog). Destructive
    actions (delete chat / clear all / retention) require confirmation. `VaultViewModel` (`AndroidViewModel`)
    owns the DAO Flows as `StateFlow`s, the **debounced** search query, and `importBackup` (insert-IGNORE
-   merge + flag re-apply, chunked ≤ 500 ids per UPDATE). **Motion:** `theme/Motion.kt` is a small
+   merge, plan via `BackupMerge`, flag re-apply chunked at `BackupMerge.FLAG_CHUNK` = 500 ids per UPDATE). **Motion:** `theme/Motion.kt` is a small
    spring-physics system (M3-Expressive-style tokens — `spatial` may overshoot for position/size/shape,
    `effects` is high-damping for color/alpha; the public `MaterialExpressiveTheme`/`MotionScheme` only ship on
    material3 1.5.0-alpha, so we stay on stable 1.3.x and roll our own). Use these specs, not fixed `tween`s,
@@ -129,6 +137,8 @@ The whole app is one pipeline: a system notification → a stored, encrypted row
    optimization exemption), `ExportUtils` (hand-rolled, **lossless** CSV/JSON serialization incl.
    control-char escaping, capture time and deleted/edited verdicts), `ShareExport` (shared
    serialize-on-IO + FileProvider share-sheet helper used by the full and per-chat exports),
+   `ExportNaming` (file names for chat exports/backups — a chat title is remote-controlled text, so
+   everything but letters/digits/umlauts collapses to `_`: no path separator, no `..`, length-capped),
    `VaultCodec` + `VaultBackup` (**encrypted vault backup**: versioned escaped-TSV payload → gzip →
    AES-256-GCM, key from PBKDF2WithHmacSHA256 [210k iterations]; file layout `"KPV1" | salt(16) | iv(12) |
    ciphertext`, extension `.kpvault`; wrong passphrase/tampering throws via the GCM tag; both framework-free
@@ -145,6 +155,10 @@ work would delay app start) so the listener can write immediately, then runs `Re
 - **Media can't be captured** — photos/voice/video aren't in the notification payload and Scoped Storage
   blocks WhatsApp's media folder. Don't attempt to add media capture; it's a documented hard limitation.
 - **Don't add network permissions or dependencies.** The privacy guarantee (offline-only) is a feature.
+- **Keep decision logic in framework-free seams.** There are no instrumented tests here (no emulator in
+  the loop), so anything worth verifying — grouping, dedup, retention, restore-merge, file names, codecs —
+  lives in plain Kotlin objects/functions that `src/test` can call directly; the Android class around them
+  (service, screen, pruner) just wires values in. New logic follows that split.
 - UI strings and user-facing text are **German** (`res/values/strings.xml`); match that.
 - Release builds currently have `isMinifyEnabled = false`; if enabling R8, SQLCipher/Room may need
   `proguard-rules.pro` keep rules.

@@ -11,17 +11,14 @@ import kotlinx.coroutines.flow.first
  */
 object RetentionPruner {
 
-    private const val DAY_MS = 86_400_000L
-
     suspend fun pruneIfDue(context: Context) {
         val settings = SettingsStore(context.applicationContext)
         val days = settings.retentionDays.first()
-        if (days <= 0) return
         val now = System.currentTimeMillis()
-        if (now - settings.lastPruneAt.first() < DAY_MS) return
+        if (!RetentionPolicy.isDue(days, settings.lastPruneAt.first(), now)) return
         // Claim the slot before deleting so a racing second caller backs off immediately.
         settings.setLastPruneAt(now)
         DatabaseProvider.get(context.applicationContext).messageDao()
-            .pruneOlderThan(now - days * DAY_MS)
+            .pruneOlderThan(RetentionPolicy.cutoff(days, now))
     }
 }

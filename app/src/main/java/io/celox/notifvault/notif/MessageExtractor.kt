@@ -46,8 +46,7 @@ class MessageExtractor(private val pm: PackageManager) {
         // Stable per-chat identifier, independent of the (often-missing) display title.
         // WhatsApp & co. post one re-used notification per chat: its conversation shortcut id —
         // or, failing that, its tag (the chat's JID) — is constant for that chat.
-        val stableKey = runCatching { n.shortcutId }.getOrNull()?.takeIf { it.isNotBlank() }
-            ?: sbn.tag?.takeIf { it.isNotBlank() }
+        val stableKey = stableKeyOf(runCatching { n.shortcutId }.getOrNull(), sbn.tag)
 
         val messages = mutableListOf<CapturedMessage>()
         val deletions = mutableListOf<DeletionMark>()
@@ -62,12 +61,11 @@ class MessageExtractor(private val pm: PackageManager) {
             for (m in style.messages) {
                 val text = m.text?.toString()?.trim().orEmpty()
                 if (text.isEmpty()) continue
-                val sender = (m.person?.name?.toString() ?: style.user.name?.toString() ?: "Unbekannt")
-                    .ifBlank { "Unbekannt" }
+                val sender = senderNameOf(m.person?.name?.toString(), style.user.name?.toString())
                 // Title for display: group name if present, else the 1:1 contact (the sender).
-                val title = (convTitle ?: sender).ifBlank { appLabel }
+                val title = displayTitleOf(convTitle, sender, appLabel)
                 // Group key: stable id if we have one, else fall back to the title (legacy behavior).
-                val key = (stableKey ?: title).ifBlank { appLabel }
+                val key = conversationKeyOf(stableKey, title, appLabel)
                 val time = if (m.timestamp > 0) m.timestamp else sbn.postTime
 
                 if (isDeletionPlaceholder(text)) {
@@ -81,8 +79,8 @@ class MessageExtractor(private val pm: PackageManager) {
             val titleRaw = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim()
             val lines = extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)
             val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.trim()
-            val title = (titleRaw?.takeIf { it.isNotEmpty() } ?: appLabel)
-            val key = (stableKey ?: title).ifBlank { appLabel }
+            val title = displayTitleOf(titleRaw, appLabel, appLabel)
+            val key = conversationKeyOf(stableKey, title, appLabel)
 
             val candidates = when {
                 !lines.isNullOrEmpty() -> lines.mapNotNull { it?.toString()?.trim()?.takeIf { s -> s.isNotEmpty() } }

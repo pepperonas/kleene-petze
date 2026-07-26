@@ -42,4 +42,21 @@ class DeletionTest {
         assertFalse(isDeletionPlaceholder("Ich habe die Datei gelöscht."))
         assertFalse(isDeletionPlaceholder(""))
     }
+
+    @Test
+    fun `does not flag near misses that merely talk about deleting`() {
+        // A false positive silently *drops* a real message (the placeholder is never stored),
+        // so the markers must stay the full official phrases, not fragments.
+        assertFalse(isDeletionPlaceholder("Nachricht gelöscht"))
+        assertFalse(isDeletionPlaceholder("Ich habe diese Nachricht gelöscht"))
+        assertFalse(isDeletionPlaceholder("message deleted"))
+        assertFalse(isDeletionPlaceholder("Hast du die Nachricht gelöscht?"))
+        assertFalse(isDeletionPlaceholder("mensaje eliminado"))
+    }
+
+    @Test
+    fun `tolerates surrounding punctuation and whitespace`() {
+        assertTrue(isDeletionPlaceholder("  This message was deleted  "))
+        assertTrue(isDeletionPlaceholder("\"Diese Nachricht wurde gelöscht\""))
+    }
 }

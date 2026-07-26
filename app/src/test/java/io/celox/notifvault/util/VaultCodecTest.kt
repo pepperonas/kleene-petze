@@ -84,4 +84,36 @@ class VaultCodecTest {
             VaultCodec.decode("KPVAULT\t1\nonly\tthree\tcolumns\n")
         }
     }
+
+    @Test
+    fun `decode rejects non-numeric timestamps instead of silently zeroing them`() {
+        val row = VaultCodec.encode(listOf(msg())).lines()[1].split('\t').toMutableList()
+        row[8] = "keine-zahl"
+        assertThrows(IllegalArgumentException::class.java) {
+            VaultCodec.decode("KPVAULT\t1\n" + row.joinToString("\t") + "\n")
+        }
+    }
+
+    @Test
+    fun `decode survives a payload without a trailing newline`() {
+        val payload = VaultCodec.encode(listOf(msg())).trimEnd('\n')
+        assertEquals(listOf(msg()), VaultCodec.decode(payload))
+    }
+
+    @Test
+    fun `an unknown escape keeps the escaped character rather than failing`() {
+        // Forward compatibility: a future writer's escape must not brick an older restore.
+        val decoded = VaultCodec.decode(
+            "KPVAULT\t1\nid\tpkg\tApp\tkey\tChat\tAlice\t0\tHallo\\q\t1\t2\t0\t0\n"
+        )
+        assertEquals("Halloq", decoded.single().text)
+    }
+
+    @Test
+    fun `flag columns other than 1 read as false`() {
+        val decoded = VaultCodec.decode(
+            "KPVAULT\t1\nid\tpkg\tApp\tkey\tChat\tAlice\t0\tHallo\t1\t2\t0\tx\n"
+        )
+        assertTrue(!decoded.single().deletionSuspected && !decoded.single().editSuperseded)
+    }
 }
