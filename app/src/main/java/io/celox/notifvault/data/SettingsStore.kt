@@ -20,7 +20,7 @@ class SettingsStore(private val context: Context) {
     private val lastCaptureKey = longPreferencesKey("last_capture_at")
     private val retentionKey = intPreferencesKey("retention_days")
     private val lastPruneKey = longPreferencesKey("last_prune_at")
-    private val noiseCleanupKey = booleanPreferencesKey("noise_cleanup_done")
+    private val noiseCleanupKey = intPreferencesKey("noise_cleanup_version")
 
     val monitoredPackages: Flow<Set<String>> = context.dataStore.data
         .map { it[pkgKey] ?: DEFAULT_PACKAGES }
@@ -43,9 +43,12 @@ class SettingsStore(private val context: Context) {
     val lastPruneAt: Flow<Long> = context.dataStore.data
         .map { it[lastPruneKey] ?: 0L }
 
-    /** Whether the one-time purge of service-noise rows (pre-filter captures) already ran. */
-    val noiseCleanupDone: Flow<Boolean> = context.dataStore.data
-        .map { it[noiseCleanupKey] ?: false }
+    /**
+     * Which generation of the noise purge already ran (0 = none). Versioned, not a boolean, so
+     * that adding markers re-runs the cleanup once for existing installs.
+     */
+    val noiseCleanupVersion: Flow<Int> = context.dataStore.data
+        .map { it[noiseCleanupKey] ?: 0 }
 
     suspend fun setMonitored(packages: Set<String>) {
         context.dataStore.edit { it[pkgKey] = packages }
@@ -71,8 +74,8 @@ class SettingsStore(private val context: Context) {
         context.dataStore.edit { it[lastPruneKey] = value }
     }
 
-    suspend fun setNoiseCleanupDone() {
-        context.dataStore.edit { it[noiseCleanupKey] = true }
+    suspend fun setNoiseCleanupVersion(value: Int) {
+        context.dataStore.edit { it[noiseCleanupKey] = value }
     }
 
     companion object {

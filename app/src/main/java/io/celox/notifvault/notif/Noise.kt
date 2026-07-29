@@ -3,18 +3,18 @@ package io.celox.notifvault.notif
 /**
  * Not everything a messenger posts is a message. WhatsApp permanently shows a background-service
  * notification ("Überprüfe auf neue Nachrichten" / "Checking for new messages"), plus backup and
- * restore progress, calls and media controls. Captured, those pile up as a junk chat named after
- * the app and drown the real ones.
+ * restore progress, voice/video calls and media controls. Captured, those pile up as junk chats
+ * next to the real ones — the calls even as a separate chat of their own.
  *
  * Two independent filters, because neither is complete on its own:
  *  - **structural** ([isNonMessageNotification]) — ongoing / foreground-service notifications and
  *    the non-message categories. Language-independent; the platform sets `FLAG_FOREGROUND_SERVICE`
  *    itself for anything a foreground service posts, which is exactly what the WhatsApp service
- *    notification is.
- *  - **textual** ([isServiceNoiseText]) — the concrete service phrases, as a safety net for OEM
+ *    notification is, and calls carry `CATEGORY_CALL` / `CATEGORY_MISSED_CALL`.
+ *  - **textual** ([isNoiseText]) — the concrete service and call phrases, as a safety net for OEM
  *    builds / app versions that post the same thing without those flags or categories.
  *
- * Both are deliberately conservative: a false positive silently drops a real message.
+ * Both stay narrow: a false positive silently drops a real message.
  */
 
 // Notification.CATEGORY_* values that are never a chat message. Kept as literals so this file
@@ -23,7 +23,8 @@ private val NOISE_CATEGORIES = setOf(
     "service",   // CATEGORY_SERVICE — background service ("Checking for new messages")
     "progress",  // CATEGORY_PROGRESS — backup / restore / download progress
     "transport", // CATEGORY_TRANSPORT — media playback controls
-    "call",      // CATEGORY_CALL — incoming / ongoing call (missed_call is left alone)
+    "call",        // CATEGORY_CALL — incoming / ongoing call
+    "missed_call", // CATEGORY_MISSED_CALL — WhatsApp's separate "Verpasster Sprachanruf" entry
     "navigation",
     "sys"        // CATEGORY_SYSTEM
 )
@@ -37,8 +38,8 @@ fun isNonMessageNotification(ongoing: Boolean, foregroundService: Boolean, categ
 
 /**
  * The service phrases themselves, lowercased. Matched with `contains` so a prefixed/suffixed
- * variant ("WhatsApp · Überprüfe auf neue Nachrichten") is still recognised. Also used by the
- * one-time cleanup of rows captured before this filter existed.
+ * variant ("WhatsApp · Überprüfe auf neue Nachrichten") is still recognised. Together with
+ * [CALL_NOISE_MARKERS] this is also what the one-time cleanup purges.
  */
 val SERVICE_NOISE_MARKERS = listOf(
     // "checking for new messages" — WhatsApp's permanent background-service notification
@@ -66,8 +67,45 @@ val SERVICE_NOISE_MARKERS = listOf(
     "restoring media"
 )
 
-/** True if [text] is one of the known service/status texts (any known language). */
-fun isServiceNoiseText(text: String): Boolean {
+/**
+ * Call notifications, lowercased. WhatsApp keeps voice/video calls in their own notification (and
+ * therefore in their own vault chat): an incoming or ongoing call is caught structurally
+ * (foreground service + `CATEGORY_CALL`), but a **missed** call is a plain notification whose only
+ * content is this text — so it needs the phrase list as well as `CATEGORY_MISSED_CALL`.
+ *
+ * Matched with `contains` (counted plurals like "2 verpasste Sprachanrufe" exist), which means a
+ * chat message that literally contains one of these phrases is dropped too. Accepted trade-off:
+ * these are notification wordings, and the alternative is a permanently growing call chat.
+ */
+val CALL_NOISE_MARKERS = listOf(
+    // German
+    "verpasster sprachanruf", "verpasste sprachanrufe",
+    "verpasster videoanruf", "verpasste videoanrufe",
+    "verpasster gruppenanruf", "verpasster anruf", "verpasste anrufe",
+    "eingehender sprachanruf", "eingehender videoanruf", "eingehender anruf",
+    "laufender anruf", "anruf läuft",
+    // English
+    "missed voice call", "missed video call", "missed group call", "missed call",
+    "incoming voice call", "incoming video call", "incoming call",
+    "ongoing voice call", "ongoing video call", "ongoing call",
+    // Spanish
+    "llamada de voz perdida", "videollamada perdida", "llamada perdida", "llamada entrante",
+    // French
+    "appel vocal manqué", "appel vidéo manqué", "appel manqué", "appel entrant",
+    // Italian ("videochiamata persa" contains "chiamata persa")
+    "chiamata vocale persa", "chiamata persa", "chiamata in arrivo",
+    // Portuguese ("videochamada perdida" contains "chamada perdida")
+    "chamada de voz perdida", "chamada perdida", "chamada recebida",
+    // Dutch
+    "gemiste spraakoproep", "gemiste video-oproep", "gemiste oproep", "inkomende oproep",
+    // Turkish
+    "cevapsız sesli arama", "cevapsız görüntülü arama", "cevapsız arama", "gelen arama",
+    // Polish
+    "nieodebrane połączenie", "połączenie przychodzące"
+)
+
+/** True if [text] is a known service/status or call notification text (any known language). */
+fun isNoiseText(text: String): Boolean {
     val t = text.lowercase()
-    return SERVICE_NOISE_MARKERS.any { t.contains(it) }
+    return SERVICE_NOISE_MARKERS.any { t.contains(it) } || CALL_NOISE_MARKERS.any { t.contains(it) }
 }

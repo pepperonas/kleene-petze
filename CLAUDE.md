@@ -20,7 +20,7 @@ Single Gradle module (`:app`), Kotlin + Jetpack Compose, minSdk 26 / target+comp
 ./gradlew assembleDebug        # APK → app/build/outputs/apk/debug/
 ./gradlew installDebug         # build + install to connected device/emulator
 ./gradlew lint                 # Android lint
-./gradlew testDebugUnitTest    # 122 JVM unit tests (MessageId, Grouping, Deletion, Noise, ExportUtils, ExportNaming, VaultCodec, VaultBackup, BackupMerge, RetentionPolicy, Format, SearchUtils)
+./gradlew testDebugUnitTest    # 124 JVM unit tests (MessageId, Grouping, Deletion, Noise, ExportUtils, ExportNaming, VaultCodec, VaultBackup, BackupMerge, RetentionPolicy, Format, SearchUtils)
 ./gradlew testDebugUnitTest --tests "io.celox.notifvault.notif.MessageIdTest"   # single test class
 ```
 
@@ -79,13 +79,19 @@ The whole app is one pipeline: a system notification → a stored, encrypted row
    as the in-place-update mechanism the whole app already relies on. 1:1 chats keep the legacy sender
    fallback (there the sender *is* the chat, and existing vaults stay grouped as they are). Group titles
    resolve `conversationTitle` → `EXTRA_TITLE` → app label.
-   **Noise filter (`notif/Noise.kt`, `NoiseTest`):** two independent, deliberately conservative filters —
+   **Noise filter (`notif/Noise.kt`, `NoiseTest`):** two independent, narrow filters —
    structural `isNonMessageNotification(ongoing, foregroundService, category)` drops `FLAG_ONGOING_EVENT` /
-   `FLAG_FOREGROUND_SERVICE` posts and the `service`/`progress`/`transport`/`call`/`navigation`/`sys`
-   categories (language-independent; WhatsApp's permanent "Überprüfe auf neue Nachrichten" is a
-   foreground-service notification, so the platform flags it), and textual `isServiceNoiseText` matches the
-   concrete service phrases (`SERVICE_NOISE_MARKERS`, 14 languages + backup/restore progress) as a safety net
-   for builds that set neither. A false positive silently drops a real message → keep phrases distinctive.
+   `FLAG_FOREGROUND_SERVICE` posts and the `service`/`progress`/`transport`/`call`/**`missed_call`**/
+   `navigation`/`sys` categories (language-independent; WhatsApp's permanent "Überprüfe auf neue Nachrichten"
+   is a foreground-service notification, so the platform flags it), and textual `isNoiseText` matches the
+   concrete phrases as a safety net for builds that set neither: `SERVICE_NOISE_MARKERS` (14 languages +
+   backup/restore progress) and `CALL_NOISE_MARKERS`. **Calls (v1.6.3):** WhatsApp keeps voice/video calls
+   in their own notification, so they became their own vault chat. Incoming/ongoing calls were already
+   covered (foreground service + `CATEGORY_CALL`); a **missed** call is a plain notification with
+   `CATEGORY_MISSED_CALL` whose entire content is the phrase, hence both the category and the marker list.
+   Call markers are `contains`-matched (counted plurals like "2 verpasste Sprachanrufe" exist), so a chat
+   message literally containing such a phrase is dropped too — accepted trade-off. A false positive silently
+   drops a real message → keep phrases distinctive.
    **Deletion detection:**
    when a still-unread message is deleted, WhatsApp re-posts the notification with the text replaced by a
    placeholder (`notif/Deletion.isDeletionPlaceholder`, unit-tested) while keeping the original sender +
@@ -123,12 +129,14 @@ The whole app is one pipeline: a system notification → a stored, encrypted row
    due so pruning can't stall) and **`BackupMerge.plan(messages, rowIds)`** (which rows were genuinely
    imported vs. which already-present rows need their deleted/edited flags re-applied; a short rowId list
    degrades to "skipped" instead of crashing a restore).
-   **`NoiseCleanup.runOnce`** purges rows captured *before* the noise filter existed (`idsAndTexts()` +
-   `deleteByIds` chunked, matched in Kotlin because SQLite's `LIKE`/`LOWER` are ASCII-only and would trip
-   over the umlauts); it claims its `SettingsStore` flag before deleting so it can never become a full scan
-   on every start. `SettingsStore` (DataStore) holds the monitored-package set, capture-all flag,
+   **`NoiseCleanup.runOnce`** purges rows captured *before* the noise filter recognised them
+   (`idsAndTexts()` + `deleteByIds` chunked, matched in Kotlin because SQLite's `LIKE`/`LOWER` are ASCII-only
+   and would trip over the umlauts); it claims its `SettingsStore` slot before deleting so it can never
+   become a full scan on every start. Gated on **`NoiseCleanup.VERSION`**, not a boolean — bumping it
+   re-runs the purge once on existing installs, which is how newly added markers reach older rows (v2 added
+   the call notifications). `SettingsStore` (DataStore) holds the monitored-package set, capture-all flag,
    biometric-lock flag,
-   `lastCaptureAt` heartbeat, `retentionDays` (0 = forever), `lastPruneAt` and `noiseCleanupDone`;
+   `lastCaptureAt` heartbeat, `retentionDays` (0 = forever), `lastPruneAt` and `noiseCleanupVersion`;
    `KNOWN_MESSENGERS` is the Settings toggle list, `DEFAULT_PACKAGES` the WhatsApp default.
 
 5. **`ui/`** — Compose. `MainActivity` is a **`FragmentActivity`** (required by `BiometricPrompt`); it gates

@@ -74,7 +74,7 @@ class MessageExtractor(private val pm: PackageManager) {
             val isGroup = style.isGroupConversation
             for (m in style.messages) {
                 val text = m.text?.toString()?.trim().orEmpty()
-                if (text.isEmpty() || isServiceNoiseText(text)) continue
+                if (text.isEmpty() || isNoiseText(text)) continue
                 val sender = senderNameOf(m.person?.name?.toString(), style.user.name?.toString())
                 // Which chat is this? Groups must never be keyed/titled by the sender — that
                 // split them per sender and merged them into the 1:1 chats with those people.
@@ -116,7 +116,7 @@ class MessageExtractor(private val pm: PackageManager) {
                 // keeps the original message's timestamp, so the stored row can be matched.
                 // Here we only have the *new* post's time, which never matches a stored
                 // original — so just skip storing the placeholder text.
-                if (isDeletionPlaceholder(t) || isServiceNoiseText(t)) continue
+                if (isDeletionPlaceholder(t) || isNoiseText(t)) continue
                 messages += message(pkg, appLabel, key, title, title, false, t, sbn.postTime, now)
             }
         }
