@@ -70,13 +70,32 @@ Zeitstempel jeder Einzelnachricht enthält) und speichert sie ab. Mehrfach gelie
 Nachrichten werden über einen Inhalts-Hash dedupliziert.
 
 **Korrekte Chat-Zuordnung:** Nachrichten werden über einen *stabilen* Chat-Schlüssel
-(`conversationKey` aus `shortcutId` → `tag` → Titel) gruppiert, nicht über den
-Anzeigenamen. Der ist bei 1:1-Chats oft leer und bei Gruppen manchmal nicht gesetzt –
-würde man danach gruppieren, zerfielen Gruppen pro Absender bzw. vermischten sich mit
-gleichnamigen Einzelchats. So landet jeder Kontakt/jede Gruppe verlässlich in genau
-einem Verlauf. Die Übersicht zeigt pro Chat den **neuesten Titel** + letzte Nachricht;
-der Verlauf rendert als Chat-Ansicht mit Datumstrennern, Sprecher-Gruppierung und
-farbigen Absendern.
+(`conversationKey` aus `shortcutId` → `tag` → Notification-Slot → Titel) gruppiert, nicht
+über den Anzeigenamen. Der ist bei 1:1-Chats oft leer und bei Gruppen manchmal nicht
+gesetzt – würde man danach gruppieren, zerfielen Gruppen pro Absender bzw. vermischten
+sich mit gleichnamigen Einzelchats. So landet jeder Kontakt/jede Gruppe verlässlich in
+genau einem Verlauf. Die Übersicht zeigt pro Chat den **neuesten Titel** + letzte
+Nachricht; der Verlauf rendert als Chat-Ansicht mit Datumstrennern, Sprecher-Gruppierung
+und farbigen Absendern.
+
+Genau hier lag der Fehler, den **v1.6.2** behebt: WhatsApp liefert bei manchen
+Benachrichtigungen keinen Gruppennamen mit. Ohne `shortcutId`/`tag` fiel der Schlüssel
+dann auf den **Absender** zurück – die Gruppe zerfiel pro Absender *und* verschmolz mit
+den Einzelchats derselben Leute, tauchte also nie als eigener Chat auf. Deshalb wurden
+manche Gruppen mitgeschnitten und andere scheinbar nicht. Für Gruppen ist der Absender
+jetzt nie mehr Schlüssel oder Titel; ohne eigene ID zählt der **Notification-Slot**, den
+der Messenger für diesen Chat wiederverwendet – genauso verlässlich wie das
+In-Place-Update, auf dem die ganze Erfassung ohnehin beruht. Der Gruppenname taugt dafür
+nicht, weil er in einer Benachrichtigung fehlt und in der nächsten dasteht (der Chat
+würde sich teilen). 1:1-Chats bleiben unverändert.
+
+**Rauschfilter (v1.6.2/v1.6.3):** Nicht alles, was ein Messenger postet, ist eine
+Nachricht. WhatsApps dauerhafte Dienst-Benachrichtigung („Überprüfe auf neue
+Nachrichten"), Backup-/Wiederherstellungs-Fortschritt sowie **Sprach- und Videoanrufe**
+(auch verpasste, die WhatsApp separat führt) landen nicht mehr im Archiv – strukturell
+über Notification-Flags und -Kategorien (sprachunabhängig) und zusätzlich über eine
+Phrasenliste für Geräte, die beides nicht setzen. Bereits erfasstes Rauschen wird beim
+Update einmalig entfernt.
 
 ## Was geht – und was nicht
 
@@ -84,7 +103,8 @@ farbigen Absendern.
 |---|---|
 | Text-Nachrichten (1:1 & Gruppen) | ✅ zuverlässig |
 | Absender + echter Zeitstempel | ✅ via MessagingStyle |
-| Korrekte Chat-Gruppierung (stabiler `conversationKey`) | ✅ |
+| Korrekte Chat-Gruppierung (stabiler `conversationKey`, Gruppen auch ohne Gruppennamen) | ✅ |
+| Dienst-/Status-Benachrichtigungen + Anrufe werden gefiltert (nicht archiviert) | ✅ |
 | Chat-Ansicht: Datumstrenner, Sprecher-Gruppierung, Avatare | ✅ |
 | Volltextsuche (mit Treffer-Hervorhebung), App-Filter in der Übersicht | ✅ |
 | Export (CSV/JSON, verlustfrei inkl. Erfassungszeit + Gelöscht-/Bearbeitet-Status), auch pro Chat | ✅ |
@@ -117,12 +137,14 @@ Reine JVM-Unit-Tests (kein Emulator nötig):
 ./gradlew testDebugUnitTest
 ```
 
-Aktuell **107 Tests**, alle ohne Android-Framework (die kritische Logik liegt bewusst in
+Aktuell **124 Tests**, alle ohne Android-Framework (die kritische Logik liegt bewusst in
 frameworkfreien Modulen). Abgedeckt:
 
 - **Dedup-Schlüssel** – `messageContentId` mit fixem SHA-256-Anker (`MessageId`)
-- **Chat-Gruppierung** – Shortcut-ID → Tag → Titel → App-Label, Sender-/Titel-Auflösung (`Grouping`)
+- **Chat-Gruppierung** – Shortcut-ID → Tag → Slot → Titel → App-Label, Sender-/Titel-Auflösung;
+  Gruppen ohne eigene ID landen weder beim Absender noch im Einzelchat (`Grouping`)
 - **Lösch-Platzhalter** in 10 Sprachen inkl. Beinahe-Treffern, die *nicht* anschlagen dürfen (`Deletion`)
+- **Rauschfilter** – Dienst-/Anruf-Benachrichtigungen erkannt, echte Nachrichten nie verworfen (`Noise`)
 - **Export** – CSV-/JSON-Escaping inkl. Steuerzeichen, verlustfreie Felder (`ExportUtils`)
 - **Dateinamen** – Chat-Titel als Dateiname: keine Pfadtrenner, kein `..`, Längenlimit (`ExportNaming`)
 - **Backup-Serialisierung** – Round-Trip inkl. Tabs/Newlines/Unicode, defekte Zeilen (`VaultCodec`)
@@ -157,18 +179,20 @@ One UI killt Hintergrunddienste sehr aggressiv. Damit kein Mitschnitt verloren g
 data/    CapturedMessage (Entity, mit conversationKey + editSuperseded), MessageDao,
          AppDatabase (v4), DatabaseProvider (SQLCipher + Migrationen),
          SettingsStore (DataStore), RetentionPruner + RetentionPolicy (Aufbewahrung),
-         BackupMerge (Restore-Plan: importiert vs. Flags nachziehen)
+         BackupMerge (Restore-Plan: importiert vs. Flags nachziehen),
+         NoiseCleanup (einmaliges Entfernen früher erfasster Dienst-/Anruf-Einträge)
 notif/   MessageExtractor – Notification → CapturedMessage(s)
          MessageId – stabiler Dedup-Inhalts-Hash (messageContentId)
          Grouping – Chat-Schlüssel/Titel/Sender-Auflösung (frameworkfrei)
          Deletion – Lösch-Platzhalter-Erkennung (10 Sprachen)
+         Noise – Dienst-/Status- und Anruf-Benachrichtigungen aussortieren
 service/ NotificationCaptureService – der Listener (Edit-Erkennung, Heartbeat, Status)
 ui/      Compose-Screens (Onboarding, Home, Conversation, Flagged/„Aufgedeckt", Settings)
          + ViewModel, Components (Avatar), Format (Datum/Zeit, Farben, Initialen)
 util/    PermissionUtils, ExportUtils, ShareExport, ExportNaming, SearchUtils,
          VaultCodec + VaultBackup (verschlüsseltes Backup/Restore)
 schemas/ Room-Schema-JSON (Referenz für handgeschriebene Migrationen)
-src/test JUnit-Unit-Tests (MessageId, Grouping, Deletion, ExportUtils, ExportNaming,
+src/test JUnit-Unit-Tests (MessageId, Grouping, Deletion, Noise, ExportUtils, ExportNaming,
          VaultCodec, VaultBackup, BackupMerge, RetentionPolicy, Format, SearchUtils)
 ```
 
