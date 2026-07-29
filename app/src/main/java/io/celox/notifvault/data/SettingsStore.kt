@@ -20,6 +20,7 @@ class SettingsStore(private val context: Context) {
     private val lastCaptureKey = longPreferencesKey("last_capture_at")
     private val retentionKey = intPreferencesKey("retention_days")
     private val lastPruneKey = longPreferencesKey("last_prune_at")
+    private val noiseCleanupKey = booleanPreferencesKey("noise_cleanup_done")
 
     val monitoredPackages: Flow<Set<String>> = context.dataStore.data
         .map { it[pkgKey] ?: DEFAULT_PACKAGES }
@@ -41,6 +42,10 @@ class SettingsStore(private val context: Context) {
     /** Throttle so the retention prune runs at most once per day across all entry points. */
     val lastPruneAt: Flow<Long> = context.dataStore.data
         .map { it[lastPruneKey] ?: 0L }
+
+    /** Whether the one-time purge of service-noise rows (pre-filter captures) already ran. */
+    val noiseCleanupDone: Flow<Boolean> = context.dataStore.data
+        .map { it[noiseCleanupKey] ?: false }
 
     suspend fun setMonitored(packages: Set<String>) {
         context.dataStore.edit { it[pkgKey] = packages }
@@ -64,6 +69,10 @@ class SettingsStore(private val context: Context) {
 
     suspend fun setLastPruneAt(value: Long) {
         context.dataStore.edit { it[lastPruneKey] = value }
+    }
+
+    suspend fun setNoiseCleanupDone() {
+        context.dataStore.edit { it[noiseCleanupKey] = true }
     }
 
     companion object {

@@ -20,7 +20,7 @@ Single Gradle module (`:app`), Kotlin + Jetpack Compose, minSdk 26 / target+comp
 ./gradlew assembleDebug        # APK → app/build/outputs/apk/debug/
 ./gradlew installDebug         # build + install to connected device/emulator
 ./gradlew lint                 # Android lint
-./gradlew testDebugUnitTest    # 107 JVM unit tests (MessageId, Grouping, Deletion, ExportUtils, ExportNaming, VaultCodec, VaultBackup, BackupMerge, RetentionPolicy, Format, SearchUtils)
+./gradlew testDebugUnitTest    # 122 JVM unit tests (MessageId, Grouping, Deletion, Noise, ExportUtils, ExportNaming, VaultCodec, VaultBackup, BackupMerge, RetentionPolicy, Format, SearchUtils)
 ./gradlew testDebugUnitTest --tests "io.celox.notifvault.notif.MessageIdTest"   # single test class
 ```
 
@@ -59,14 +59,34 @@ The whole app is one pipeline: a system notification → a stored, encrypted row
    `RetentionPruner.pruneIfDue` (the service runs even when the UI never opens).
 
 2. **`notif/MessageExtractor`** — `extract()` returns an **`ExtractResult(messages, deletions)`**. Skips
-   `FLAG_GROUP_SUMMARY`. **Prefers `NotificationCompat.MessagingStyle`** (gives per-message sender + real
+   `FLAG_GROUP_SUMMARY` and **non-message notifications** (see noise filter below). **Prefers
+   `NotificationCompat.MessagingStyle`** (gives per-message sender + real
    timestamp + bundled back-history); falls back to title/`EXTRA_TEXT_LINES`/`EXTRA_TEXT`. **Derives a stable
-   `conversationKey`** for grouping — `notification.shortcutId` → `sbn.tag` → display title — because the title
+   `conversationKey`** for grouping — `notification.shortcutId` → `sbn.tag` → (groups: notification slot) →
+   display title — because the title
    (`conversationTitle`) is null for most 1:1 WhatsApp chats and sometimes missing for groups; grouping by
    title mixed distinct chats and split groups per-sender. The title is display-only. Those resolution rules
-   live in **`notif/Grouping.kt`** (`stableKeyOf`/`senderNameOf`/`displayTitleOf`/`conversationKeyOf`) —
+   live in **`notif/Grouping.kt`** (`stableKeyOf`/`senderNameOf`/`displayTitleOf`/`conversationKeyOf`/
+   `slotKeyOf`/`chatIdentityOf`) —
    framework-free so `GroupingTest` can pin them without a `StatusBarNotification`; the extractor only wires
-   the notification fields into them. **Deletion detection:**
+   the notification fields into them. **Group chats without shortcutId/tag (v1.6.2 fix):** `chatIdentityOf`
+   resolves the MessagingStyle path's key+title together and **never falls back to the sender for a group**.
+   WhatsApp omits `conversationTitle` on some posts/versions; the old title fallback then yielded the *sender*,
+   which split the group per sender **and merged those parts into the 1:1 chats with the same people** — so
+   affected groups never appeared as their own chat (this is why *some* groups looked untracked). The group
+   name is no fallback either (present in one post, missing in the next → the chat would split), so the key
+   is `slotKeyOf(pkg, sbn.id)` — the notification slot the messenger re-uses for that chat, exactly as stable
+   as the in-place-update mechanism the whole app already relies on. 1:1 chats keep the legacy sender
+   fallback (there the sender *is* the chat, and existing vaults stay grouped as they are). Group titles
+   resolve `conversationTitle` → `EXTRA_TITLE` → app label.
+   **Noise filter (`notif/Noise.kt`, `NoiseTest`):** two independent, deliberately conservative filters —
+   structural `isNonMessageNotification(ongoing, foregroundService, category)` drops `FLAG_ONGOING_EVENT` /
+   `FLAG_FOREGROUND_SERVICE` posts and the `service`/`progress`/`transport`/`call`/`navigation`/`sys`
+   categories (language-independent; WhatsApp's permanent "Überprüfe auf neue Nachrichten" is a
+   foreground-service notification, so the platform flags it), and textual `isServiceNoiseText` matches the
+   concrete service phrases (`SERVICE_NOISE_MARKERS`, 14 languages + backup/restore progress) as a safety net
+   for builds that set neither. A false positive silently drops a real message → keep phrases distinctive.
+   **Deletion detection:**
    when a still-unread message is deleted, WhatsApp re-posts the notification with the text replaced by a
    placeholder (`notif/Deletion.isDeletionPlaceholder`, unit-tested) while keeping the original sender +
    timestamp; the extractor emits a `DeletionMark(conversationKey, sender, messageTime)` instead of storing
@@ -103,9 +123,13 @@ The whole app is one pipeline: a system notification → a stored, encrypted row
    due so pruning can't stall) and **`BackupMerge.plan(messages, rowIds)`** (which rows were genuinely
    imported vs. which already-present rows need their deleted/edited flags re-applied; a short rowId list
    degrades to "skipped" instead of crashing a restore).
-   `SettingsStore` (DataStore) holds the monitored-package set, capture-all flag, biometric-lock flag,
-   `lastCaptureAt` heartbeat, `retentionDays` (0 = forever) and `lastPruneAt`; `KNOWN_MESSENGERS` is the
-   Settings toggle list, `DEFAULT_PACKAGES` the WhatsApp default.
+   **`NoiseCleanup.runOnce`** purges rows captured *before* the noise filter existed (`idsAndTexts()` +
+   `deleteByIds` chunked, matched in Kotlin because SQLite's `LIKE`/`LOWER` are ASCII-only and would trip
+   over the umlauts); it claims its `SettingsStore` flag before deleting so it can never become a full scan
+   on every start. `SettingsStore` (DataStore) holds the monitored-package set, capture-all flag,
+   biometric-lock flag,
+   `lastCaptureAt` heartbeat, `retentionDays` (0 = forever), `lastPruneAt` and `noiseCleanupDone`;
+   `KNOWN_MESSENGERS` is the Settings toggle list, `DEFAULT_PACKAGES` the WhatsApp default.
 
 5. **`ui/`** — Compose. `MainActivity` is a **`FragmentActivity`** (required by `BiometricPrompt`); it gates
    the app behind biometric/device-credential unlock when enabled (and **re-locks on `ON_STOP`**), then a
@@ -148,7 +172,8 @@ The whole app is one pipeline: a system notification → a stored, encrypted row
    `lowercase()` copy, case folding can change string length).
 
 `NotifVaultApp` (Application) warms up `DatabaseProvider` at startup (on a background thread — Keystore
-work would delay app start) so the listener can write immediately, then runs `RetentionPruner.pruneIfDue`.
+work would delay app start) so the listener can write immediately, then runs `RetentionPruner.pruneIfDue`
+and `NoiseCleanup.runOnce`.
 
 ## Things to keep in mind
 

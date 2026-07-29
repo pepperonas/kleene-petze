@@ -19,10 +19,12 @@ data class ExtractResult(val messages: List<CapturedMessage>, val deletions: Lis
  *
  * Strategy:
  *  1. Skip the group-summary notification ("5 new messages from 3 chats") to avoid noise.
- *  2. Prefer MessagingStyle: WhatsApp/Signal/etc. embed each individual message with its
+ *  2. Skip status/service notifications — WhatsApp's permanent "Überprüfe auf neue Nachrichten",
+ *     backup progress, calls, media controls (see [isNonMessageNotification]).
+ *  3. Prefer MessagingStyle: WhatsApp/Signal/etc. embed each individual message with its
  *     real sender + timestamp. This is far more accurate than reading EXTRA_TITLE/TEXT and
  *     also recovers the short back-history bundled into each notification.
- *  3. Fall back to title/text (and inbox-style text lines) for apps without MessagingStyle.
+ *  4. Fall back to title/text (and inbox-style text lines) for apps without MessagingStyle.
  *
  * The de-dup key is a content hash, so the same message arriving inside many subsequent
  * notifications collapses to one stored row.
@@ -39,14 +41,25 @@ class MessageExtractor(private val pm: PackageManager) {
     fun extract(sbn: StatusBarNotification): ExtractResult {
         val n = sbn.notification ?: return ExtractResult.EMPTY
         if (n.flags and Notification.FLAG_GROUP_SUMMARY != 0) return ExtractResult.EMPTY
+        // Status/service notification, not a message (WhatsApp's "Überprüfe auf neue
+        // Nachrichten" runs as a foreground service, so the platform flags it for us).
+        if (isNonMessageNotification(
+                ongoing = n.flags and Notification.FLAG_ONGOING_EVENT != 0,
+                foregroundService = n.flags and Notification.FLAG_FOREGROUND_SERVICE != 0,
+                category = runCatching { n.category }.getOrNull()
+            )
+        ) return ExtractResult.EMPTY
 
         val pkg = sbn.packageName
         val appLabel = labelFor(pkg)
         val now = System.currentTimeMillis()
-        // Stable per-chat identifier, independent of the (often-missing) display title.
-        // WhatsApp & co. post one re-used notification per chat: its conversation shortcut id —
-        // or, failing that, its tag (the chat's JID) — is constant for that chat.
-        val stableKey = stableKeyOf(runCatching { n.shortcutId }.getOrNull(), sbn.tag)
+        // Per-chat identity, independent of the (often-missing) display title. WhatsApp & co.
+        // post one re-used notification per chat: its conversation shortcut id — or, failing
+        // that, its tag (the chat's JID) — is constant for that chat; the notification slot is
+        // the fallback for groups (see chatIdentityOf).
+        val shortcutId = runCatching { n.shortcutId }.getOrNull()
+        val slotKey = slotKeyOf(pkg, sbn.id)
+        val stableKey = stableKeyOf(shortcutId, sbn.tag)
 
         val messages = mutableListOf<CapturedMessage>()
         val deletions = mutableListOf<DeletionMark>()
@@ -56,22 +69,33 @@ class MessageExtractor(private val pm: PackageManager) {
         }.getOrNull()
 
         if (style != null && style.messages.isNotEmpty()) {
-            val convTitle = style.conversationTitle?.toString()?.trim()?.takeIf { it.isNotEmpty() }
+            val convTitle = style.conversationTitle?.toString()
+            val notifTitle = n.extras?.getCharSequence(Notification.EXTRA_TITLE)?.toString()
             val isGroup = style.isGroupConversation
             for (m in style.messages) {
                 val text = m.text?.toString()?.trim().orEmpty()
-                if (text.isEmpty()) continue
+                if (text.isEmpty() || isServiceNoiseText(text)) continue
                 val sender = senderNameOf(m.person?.name?.toString(), style.user.name?.toString())
-                // Title for display: group name if present, else the 1:1 contact (the sender).
-                val title = displayTitleOf(convTitle, sender, appLabel)
-                // Group key: stable id if we have one, else fall back to the title (legacy behavior).
-                val key = conversationKeyOf(stableKey, title, appLabel)
+                // Which chat is this? Groups must never be keyed/titled by the sender — that
+                // split them per sender and merged them into the 1:1 chats with those people.
+                val chat = chatIdentityOf(
+                    shortcutId = shortcutId,
+                    tag = sbn.tag,
+                    slotKey = slotKey,
+                    isGroup = isGroup,
+                    conversationTitle = convTitle,
+                    notificationTitle = notifTitle,
+                    sender = sender,
+                    appLabel = appLabel
+                )
                 val time = if (m.timestamp > 0) m.timestamp else sbn.postTime
 
                 if (isDeletionPlaceholder(text)) {
-                    deletions += DeletionMark(key, sender, time)
+                    deletions += DeletionMark(chat.key, sender, time)
                 } else {
-                    messages += message(pkg, appLabel, key, title, sender, isGroup, text, time, now)
+                    messages += message(
+                        pkg, appLabel, chat.key, chat.title, sender, isGroup, text, time, now
+                    )
                 }
             }
         } else {
@@ -92,7 +116,7 @@ class MessageExtractor(private val pm: PackageManager) {
                 // keeps the original message's timestamp, so the stored row can be matched.
                 // Here we only have the *new* post's time, which never matches a stored
                 // original — so just skip storing the placeholder text.
-                if (isDeletionPlaceholder(t)) continue
+                if (isDeletionPlaceholder(t) || isServiceNoiseText(t)) continue
                 messages += message(pkg, appLabel, key, title, title, false, t, sbn.postTime, now)
             }
         }

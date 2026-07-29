@@ -6,6 +6,9 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
 
+/** Just enough of a row to decide whether it is service noise (one-time cleanup). */
+data class MessageText(val id: String, val text: String)
+
 /** Lightweight projection for the conversation overview list. */
 data class ConversationSummary(
     val conversationKey: String,
@@ -114,6 +117,15 @@ interface MessageDao {
     // Retention: drop messages older than the cutoff (only ever called with retention enabled).
     @Query("DELETE FROM messages WHERE messageTime < :cutoff")
     suspend fun pruneOlderThan(cutoff: Long): Int
+
+    // One-time cleanup of service/status notifications captured before the noise filter existed
+    // (WhatsApp's "Überprüfe auf neue Nachrichten" & co.). Matching happens in Kotlin —
+    // SQLite's LIKE/LOWER are ASCII-only and would trip over the umlauts.
+    @Query("SELECT id, text FROM messages")
+    suspend fun idsAndTexts(): List<MessageText>
+
+    @Query("DELETE FROM messages WHERE id IN (:ids)")
+    suspend fun deleteByIds(ids: List<String>): Int
 
     // Restore path: re-apply flags from a backup to rows that already existed unflagged
     // (insert IGNORE keeps the existing row, so flags must be merged separately).
