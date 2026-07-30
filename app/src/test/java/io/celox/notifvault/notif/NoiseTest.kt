@@ -82,6 +82,17 @@ class NoiseTest {
         assertTrue(isNoiseText("Nieodebrane połączenie"))
     }
 
+    // A missed call puts its wording in the notification *title* and the contact name in the
+    // text, so the same check has to be applied to the title — otherwise the row lands in the
+    // vault as a chat named after the call.
+    @Test
+    fun `call wording is recognised when it arrives as the notification title`() {
+        val title = "Verpasster Sprachanruf"
+        val text = "Max Mustermann"
+        assertTrue(isNoiseText(title))
+        assertFalse(isNoiseText(text))
+    }
+
     @Test
     fun `real messages are never dropped`() {
         for (t in listOf(

@@ -89,13 +89,16 @@ In-Place-Update, auf dem die ganze Erfassung ohnehin beruht. Der Gruppenname tau
 nicht, weil er in einer Benachrichtigung fehlt und in der nächsten dasteht (der Chat
 würde sich teilen). 1:1-Chats bleiben unverändert.
 
-**Rauschfilter (v1.6.2/v1.6.3):** Nicht alles, was ein Messenger postet, ist eine
+**Rauschfilter (v1.6.2–v1.6.4):** Nicht alles, was ein Messenger postet, ist eine
 Nachricht. WhatsApps dauerhafte Dienst-Benachrichtigung („Überprüfe auf neue
 Nachrichten"), Backup-/Wiederherstellungs-Fortschritt sowie **Sprach- und Videoanrufe**
 (auch verpasste, die WhatsApp separat führt) landen nicht mehr im Archiv – strukturell
 über Notification-Flags und -Kategorien (sprachunabhängig) und zusätzlich über eine
-Phrasenliste für Geräte, die beides nicht setzen. Bereits erfasstes Rauschen wird beim
-Update einmalig entfernt.
+Phrasenliste für Geräte, die beides nicht setzen. Geprüft wird **Titel und Text**: ein
+verpasster Anruf trägt seinen Wortlaut im *Titel* („Verpasster Sprachanruf") und den
+Kontaktnamen im Text – prüfte man nur den Text, rutschte er durch und tauchte, weil der
+Titel zum Chatnamen wird, als eigener Chat „Verpasster Sprachanruf" in der Übersicht auf
+(genau das behebt v1.6.4). Bereits erfasstes Rauschen wird beim Update einmalig entfernt.
 
 ## Was geht – und was nicht
 
@@ -137,7 +140,7 @@ Reine JVM-Unit-Tests (kein Emulator nötig):
 ./gradlew testDebugUnitTest
 ```
 
-Aktuell **124 Tests**, alle ohne Android-Framework (die kritische Logik liegt bewusst in
+Aktuell **125 Tests**, alle ohne Android-Framework (die kritische Logik liegt bewusst in
 frameworkfreien Modulen). Abgedeckt:
 
 - **Dedup-Schlüssel** – `messageContentId` mit fixem SHA-256-Anker (`MessageId`)

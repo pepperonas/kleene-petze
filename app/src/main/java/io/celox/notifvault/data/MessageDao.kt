@@ -6,8 +6,12 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
 
-/** Just enough of a row to decide whether it is service noise (one-time cleanup). */
-data class MessageText(val id: String, val text: String)
+/**
+ * Just enough of a row to decide whether it is noise (one-time cleanup). The [conversation] title
+ * matters as much as the [text]: a missed call stores its wording as the *title* ("Verpasster
+ * Sprachanruf") and the contact name as the text.
+ */
+data class MessageText(val id: String, val text: String, val conversation: String)
 
 /** Lightweight projection for the conversation overview list. */
 data class ConversationSummary(
@@ -121,7 +125,7 @@ interface MessageDao {
     // One-time cleanup of service/status notifications captured before the noise filter existed
     // (WhatsApp's "Überprüfe auf neue Nachrichten" & co.). Matching happens in Kotlin —
     // SQLite's LIKE/LOWER are ASCII-only and would trip over the umlauts.
-    @Query("SELECT id, text FROM messages")
+    @Query("SELECT id, text, conversation FROM messages")
     suspend fun idsAndTexts(): List<MessageText>
 
     @Query("DELETE FROM messages WHERE id IN (:ids)")

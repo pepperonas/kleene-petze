@@ -50,6 +50,13 @@ class MessageExtractor(private val pm: PackageManager) {
             )
         ) return ExtractResult.EMPTY
 
+        // A call or status notification usually carries its wording in the *title*
+        // ("Verpasster Sprachanruf") and the contact in the text — checking only the message
+        // text let those through, and because the title becomes the chat name they showed up
+        // as a chat of their own, named after the call.
+        val notifTitle = n.extras?.getCharSequence(Notification.EXTRA_TITLE)?.toString()
+        if (notifTitle != null && isNoiseText(notifTitle)) return ExtractResult.EMPTY
+
         val pkg = sbn.packageName
         val appLabel = labelFor(pkg)
         val now = System.currentTimeMillis()
@@ -70,7 +77,6 @@ class MessageExtractor(private val pm: PackageManager) {
 
         if (style != null && style.messages.isNotEmpty()) {
             val convTitle = style.conversationTitle?.toString()
-            val notifTitle = n.extras?.getCharSequence(Notification.EXTRA_TITLE)?.toString()
             val isGroup = style.isGroupConversation
             for (m in style.messages) {
                 val text = m.text?.toString()?.trim().orEmpty()

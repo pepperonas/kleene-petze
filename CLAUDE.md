@@ -20,7 +20,7 @@ Single Gradle module (`:app`), Kotlin + Jetpack Compose, minSdk 26 / target+comp
 ./gradlew assembleDebug        # APK → app/build/outputs/apk/debug/
 ./gradlew installDebug         # build + install to connected device/emulator
 ./gradlew lint                 # Android lint
-./gradlew testDebugUnitTest    # 124 JVM unit tests (MessageId, Grouping, Deletion, Noise, ExportUtils, ExportNaming, VaultCodec, VaultBackup, BackupMerge, RetentionPolicy, Format, SearchUtils)
+./gradlew testDebugUnitTest    # 125 JVM unit tests (MessageId, Grouping, Deletion, Noise, ExportUtils, ExportNaming, VaultCodec, VaultBackup, BackupMerge, RetentionPolicy, Format, SearchUtils)
 ./gradlew testDebugUnitTest --tests "io.celox.notifvault.notif.MessageIdTest"   # single test class
 ```
 
@@ -91,7 +91,11 @@ The whole app is one pipeline: a system notification → a stored, encrypted row
    `CATEGORY_MISSED_CALL` whose entire content is the phrase, hence both the category and the marker list.
    Call markers are `contains`-matched (counted plurals like "2 verpasste Sprachanrufe" exist), so a chat
    message literally containing such a phrase is dropped too — accepted trade-off. A false positive silently
-   drops a real message → keep phrases distinctive.
+   drops a real message → keep phrases distinctive. **Title, not just text (v1.6.4):** the whole notification
+   is dropped when `EXTRA_TITLE` matches, checked before anything else. A missed call carries its wording in
+   the *title* and the contact name in the text, so matching only the message text let it through — and since
+   the title becomes `conversation`, it surfaced as a chat literally named "Verpasster Sprachanruf". The same
+   title-or-text rule applies in `NoiseCleanup` (v2 matched nothing for exactly this reason).
    **Deletion detection:**
    when a still-unread message is deleted, WhatsApp re-posts the notification with the text replaced by a
    placeholder (`notif/Deletion.isDeletionPlaceholder`, unit-tested) while keeping the original sender +
@@ -131,10 +135,12 @@ The whole app is one pipeline: a system notification → a stored, encrypted row
    degrades to "skipped" instead of crashing a restore).
    **`NoiseCleanup.runOnce`** purges rows captured *before* the noise filter recognised them
    (`idsAndTexts()` + `deleteByIds` chunked, matched in Kotlin because SQLite's `LIKE`/`LOWER` are ASCII-only
-   and would trip over the umlauts); it claims its `SettingsStore` slot before deleting so it can never
-   become a full scan on every start. Gated on **`NoiseCleanup.VERSION`**, not a boolean — bumping it
+   and would trip over the umlauts), matching the **chat title as well as the message text**.
+   Gated on **`NoiseCleanup.VERSION`**, not a boolean — bumping it
    re-runs the purge once on existing installs, which is how newly added markers reach older rows (v2 added
-   the call notifications). `SettingsStore` (DataStore) holds the monitored-package set, capture-all flag,
+   the call notifications, v3 the title matching). The version is claimed only *after* a completed pass:
+   the caller wraps this in `runCatching`, so claiming up front would turn one transient failure into
+   "never again". `SettingsStore` (DataStore) holds the monitored-package set, capture-all flag,
    biometric-lock flag,
    `lastCaptureAt` heartbeat, `retentionDays` (0 = forever), `lastPruneAt` and `noiseCleanupVersion`;
    `KNOWN_MESSENGERS` is the Settings toggle list, `DEFAULT_PACKAGES` the WhatsApp default.
