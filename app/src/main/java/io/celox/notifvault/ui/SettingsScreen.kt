@@ -52,6 +52,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.celox.notifvault.data.CapturedMessage
 import io.celox.notifvault.data.RetentionPolicy
 import io.celox.notifvault.data.SettingsStore
 import io.celox.notifvault.service.NotificationCaptureService
@@ -59,8 +60,8 @@ import io.celox.notifvault.ui.theme.Motion
 import io.celox.notifvault.util.ExportNaming
 import io.celox.notifvault.util.PermissionUtils
 import io.celox.notifvault.util.VaultBackup
-import io.celox.notifvault.util.VaultCodec
-import io.celox.notifvault.util.shareExport
+import io.celox.notifvault.util.VaultFormat
+import io.celox.notifvault.util.VaultTransfer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -96,37 +97,97 @@ fun SettingsScreen(vm: VaultViewModel, onBack: () -> Unit) {
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    // ---- Backup / Restore state ----
-    var backupPassDialog by remember { mutableStateOf(false) }
-    var restoreUri by remember { mutableStateOf<Uri?>(null) }
+    // ---- Export / Import state ----
+    var exportFormatDialog by remember { mutableStateOf(false) }
+    var exportFormat by remember { mutableStateOf<VaultFormat?>(null) }
+    var exportPassDialog by remember { mutableStateOf(false) }
+    var exportPass by remember { mutableStateOf("") }
+    var importUri by remember { mutableStateOf<Uri?>(null) }
+    var importFormat by remember { mutableStateOf<VaultFormat?>(null) }
+    var importPassDialog by remember { mutableStateOf(false) }
+    var importPreview by remember {
+        mutableStateOf<Pair<VaultTransfer.Preview, List<CapturedMessage>?>?>(null)
+    }
     var resultMessage by remember { mutableStateOf<String?>(null) }
-    var backupPass by remember { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
 
-    val backupCreator = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("application/octet-stream")
+    fun openImport(uri: Uri) = context.contentResolver.openInputStream(uri)
+        ?: error("Datei konnte nicht gelesen werden")
+
+    // One creator for every format: the chosen extension travels in the suggested file name,
+    // and "*/*" keeps pickers from appending one of their own.
+    val exportCreator = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("*/*")
     ) { uri ->
-        val pass = backupPass
-        backupPass = ""
-        if (uri == null) return@rememberLauncherForActivityResult
+        val format = exportFormat
+        val pass = exportPass
+        exportPass = ""
+        if (uri == null || format == null) return@rememberLauncherForActivityResult
+        busy = true
         scope.launch {
             resultMessage = runCatching {
-                withContext(Dispatchers.IO) {
-                    val all = vm.exportAll()
-                    val bytes = VaultBackup.encrypt(VaultCodec.encode(all), pass.toCharArray())
-                    context.contentResolver.openOutputStream(uri)?.use { it.write(bytes) }
+                val out = withContext(Dispatchers.IO) {
+                    context.contentResolver.openOutputStream(uri)
                         ?: error("Datei konnte nicht geschrieben werden")
-                    all.size
                 }
+                out.use { vm.exportTo(it, format, pass.takeIf { p -> p.isNotEmpty() }?.toCharArray()) }
             }.fold(
-                onSuccess = { "Backup mit $it Nachrichten erstellt. Passphrase gut aufbewahren — ohne sie ist das Backup wertlos." },
-                onFailure = { "Backup fehlgeschlagen: ${it.message}" }
+                onSuccess = { n ->
+                    if (format.encrypted)
+                        "$n Nachrichten verschlüsselt exportiert. Passphrase gut aufbewahren — " +
+                            "ohne sie ist die Datei wertlos."
+                    else
+                        "$n Nachrichten als ${format.extension.uppercase()} exportiert. " +
+                            "Die Datei ist unverschlüsselt und im Klartext lesbar."
+                },
+                onFailure = { "Export fehlgeschlagen: ${it.message}" }
             )
+            busy = false
         }
     }
 
-    val restorePicker = rememberLauncherForActivityResult(
+    // Reads the file, works out what it is and summarises it — nothing is written yet.
+    fun prepareImport(uri: Uri, format: VaultFormat, pass: CharArray?) {
+        busy = true
+        scope.launch {
+            runCatching { vm.previewImport(format, { openImport(uri) }, pass) }
+                .fold(
+                    onSuccess = { importPreview = it },
+                    onFailure = { resultMessage = importError(it) }
+                )
+            busy = false
+        }
+    }
+
+    val importPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
-    ) { uri -> if (uri != null) restoreUri = uri }
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        importUri = uri
+        busy = true
+        scope.launch {
+            val detected = runCatching {
+                withContext(Dispatchers.IO) {
+                    openImport(uri).use { stream ->
+                        VaultFormat.detect(ByteArray(VaultFormat.SNIFF_BYTES).let { buf ->
+                            val n = stream.read(buf)
+                            if (n <= 0) ByteArray(0) else buf.copyOf(n)
+                        })
+                    }
+                }
+            }
+            busy = false
+            detected.fold(
+                onSuccess = { format ->
+                    importFormat = format
+                    // The passphrase is only needed for the encrypted container.
+                    if (format.encrypted) importPassDialog = true
+                    else prepareImport(uri, format, null)
+                },
+                onFailure = { resultMessage = importError(it) }
+            )
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -190,15 +251,33 @@ fun SettingsScreen(vm: VaultViewModel, onBack: () -> Unit) {
                 color = MaterialTheme.colorScheme.secondary)
 
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
-            Section("Daten ($total Nachrichten)")
+            Section("Export & Import ($total Nachrichten)")
+            Text(
+                "Das ganze Archiv als Datei sichern und wieder einlesen. Verschlüsselung ist " +
+                    "optional — verschlüsselt (.kpvault) ist die Datei ohne Passphrase wertlos, " +
+                    "JSON und CSV sind lesbar und lassen sich genauso zurückspielen.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
             Button(
-                onClick = { scope.launch { shareExport(context, vm.exportAll(), csv = true) } },
+                onClick = { exportFormatDialog = true },
+                enabled = total > 0 && !busy,
                 modifier = Modifier.fillMaxWidth()
-            ) { Text("Als CSV exportieren") }
+            ) { Text("Archiv exportieren…") }
             OutlinedButton(
-                onClick = { scope.launch { shareExport(context, vm.exportAll(), csv = false) } },
+                onClick = { importPicker.launch(arrayOf("*/*")) },
+                enabled = !busy,
                 modifier = Modifier.fillMaxWidth()
-            ) { Text("Als JSON exportieren") }
+            ) { Text("Aus Datei importieren…") }
+            Text(
+                "Ein Import fügt nur hinzu: bereits vorhandene Nachrichten bleiben unverändert, " +
+                    "dieselbe Datei zweimal einzulesen ändert nichts.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.secondary
+            )
+
+            HorizontalDivider(Modifier.padding(vertical = 8.dp))
+            Section("Daten")
             RetentionRow(retention) { showRetentionDialog = true }
             OutlinedButton(
                 onClick = { confirmClear = true },
@@ -206,24 +285,6 @@ fun SettingsScreen(vm: VaultViewModel, onBack: () -> Unit) {
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
             ) { Text("Alle Daten löschen") }
-
-            HorizontalDivider(Modifier.padding(vertical = 8.dp))
-            Section("Backup")
-            Text(
-                "Verschlüsseltes Backup des gesamten Archivs (.kpvault, AES-256). " +
-                    "Ohne die Passphrase ist die Datei nicht lesbar — auch nicht für dich.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Button(
-                onClick = { backupPassDialog = true },
-                enabled = total > 0,
-                modifier = Modifier.fillMaxWidth()
-            ) { Text("Backup erstellen") }
-            OutlinedButton(
-                onClick = { restorePicker.launch(arrayOf("*/*")) },
-                modifier = Modifier.fillMaxWidth()
-            ) { Text("Backup wiederherstellen") }
 
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
             Section("Hinweise")
@@ -275,57 +336,84 @@ fun SettingsScreen(vm: VaultViewModel, onBack: () -> Unit) {
         )
     }
 
-    if (backupPassDialog) {
-        PassphraseDialog(
-            title = "Backup verschlüsseln",
-            hint = "Mindestens ${VaultBackup.MIN_PASSPHRASE_LENGTH} Zeichen. Ohne diese Passphrase " +
-                "lässt sich das Backup nie wieder öffnen.",
-            requireConfirm = true,
-            onConfirm = { pass ->
-                backupPassDialog = false
-                backupPass = pass
-                val date = SimpleDateFormat("yyyy-MM-dd", Locale.GERMANY).format(Date())
-                backupCreator.launch(ExportNaming.backupFileName(date))
+    if (exportFormatDialog) {
+        ExportFormatDialog(
+            onSelect = { format ->
+                exportFormatDialog = false
+                exportFormat = format
+                if (format.encrypted) {
+                    exportPassDialog = true
+                } else {
+                    val date = SimpleDateFormat("yyyy-MM-dd", Locale.GERMANY).format(Date())
+                    exportCreator.launch(ExportNaming.exportFileName(date, format))
+                }
             },
-            onDismiss = { backupPassDialog = false }
+            onDismiss = { exportFormatDialog = false }
         )
     }
 
-    restoreUri?.let { uri ->
+    if (exportPassDialog) {
         PassphraseDialog(
-            title = "Backup entschlüsseln",
-            hint = "Passphrase des Backups eingeben.",
+            title = "Export verschlüsseln",
+            hint = "Mindestens ${VaultBackup.MIN_PASSPHRASE_LENGTH} Zeichen. Ohne diese Passphrase " +
+                "lässt sich die Datei nie wieder öffnen.",
+            requireConfirm = true,
+            onConfirm = { pass ->
+                exportPassDialog = false
+                exportPass = pass
+                val date = SimpleDateFormat("yyyy-MM-dd", Locale.GERMANY).format(Date())
+                exportCreator.launch(ExportNaming.exportFileName(date, VaultFormat.ENCRYPTED))
+            },
+            onDismiss = { exportPassDialog = false; exportFormat = null }
+        )
+    }
+
+    if (importPassDialog) {
+        val uri = importUri
+        PassphraseDialog(
+            title = "Datei entschlüsseln",
+            hint = "Passphrase der verschlüsselten Datei eingeben.",
             requireConfirm = false,
             onConfirm = { pass ->
-                restoreUri = null
+                importPassDialog = false
+                if (uri != null) prepareImport(uri, VaultFormat.ENCRYPTED, pass.toCharArray())
+            },
+            onDismiss = { importPassDialog = false; importUri = null; importFormat = null }
+        )
+    }
+
+    // What the file holds, shown before a single row is written.
+    importPreview?.let { (preview, decrypted) ->
+        val uri = importUri
+        ImportPreviewDialog(
+            preview = preview,
+            onConfirm = {
+                importPreview = null
+                if (uri == null) return@ImportPreviewDialog
+                busy = true
                 scope.launch {
                     resultMessage = runCatching {
-                        val messages = withContext(Dispatchers.IO) {
-                            val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-                                ?: error("Datei konnte nicht gelesen werden")
-                            VaultCodec.decode(VaultBackup.decrypt(bytes, pass.toCharArray()))
-                        }
-                        vm.importBackup(messages)
+                        vm.applyImport(preview.format, { openImport(uri) }, decrypted)
                     }.fold(
-                        onSuccess = { (imported, skipped) ->
-                            "Wiederhergestellt: $imported Nachrichten importiert, $skipped bereits vorhanden."
+                        onSuccess = { (imported, present) ->
+                            "Import abgeschlossen: $imported Nachrichten übernommen, " +
+                                "$present waren bereits vorhanden."
                         },
-                        onFailure = {
-                            if (it is javax.crypto.AEADBadTagException)
-                                "Entschlüsselung fehlgeschlagen — falsche Passphrase oder beschädigte Datei."
-                            else "Wiederherstellung fehlgeschlagen: ${it.message}"
-                        }
+                        onFailure = { importError(it) }
                     )
+                    busy = false
+                    importUri = null
+                    importFormat = null
                 }
             },
-            onDismiss = { restoreUri = null }
+            onDismiss = { importPreview = null; importUri = null; importFormat = null }
         )
     }
 
     resultMessage?.let { msg ->
         AlertDialog(
             onDismissRequest = { resultMessage = null },
-            title = { Text("Backup") },
+            title = { Text("Export & Import") },
             text = { Text(msg) },
             confirmButton = {
                 TextButton(onClick = { resultMessage = null }) { Text("OK") }
@@ -402,6 +490,109 @@ private fun RetentionDialog(current: Int, onSelect: (Int) -> Unit, onDismiss: ()
         confirmButton = {
             TextButton(onClick = onDismiss) { Text("Abbrechen") }
         }
+    )
+}
+
+/**
+ * Turns a failed export/import into something the user can act on. A wrong passphrase is by far
+ * the most common cause and must not read like a corrupt file.
+ */
+private fun importError(t: Throwable): String = when (t) {
+    is javax.crypto.AEADBadTagException ->
+        "Entschlüsselung fehlgeschlagen — falsche Passphrase oder beschädigte Datei."
+    is IllegalArgumentException ->
+        "Datei konnte nicht gelesen werden: ${t.message}"
+    else -> "Import fehlgeschlagen: ${t.message}"
+}
+
+/** Format picker — this is where encryption becomes optional rather than mandatory. */
+@Composable
+private fun ExportFormatDialog(onSelect: (VaultFormat) -> Unit, onDismiss: () -> Unit) {
+    val options = listOf(
+        Triple(
+            VaultFormat.ENCRYPTED, "Verschlüsselt (.kpvault)",
+            "AES-256 mit Passphrase. Empfohlen, wenn die Datei das Gerät verlässt — ohne " +
+                "Passphrase ist sie für niemanden lesbar, auch nicht für dich."
+        ),
+        Triple(
+            VaultFormat.JSON, "JSON (unverschlüsselt)",
+            "Vollständig und wieder importierbar, zusätzlich mit anderen Programmen auswertbar. " +
+                "Der Inhalt steht im Klartext in der Datei."
+        ),
+        Triple(
+            VaultFormat.CSV, "CSV (unverschlüsselt)",
+            "Für Tabellenprogramme. Ebenfalls vollständig und wieder importierbar, ebenfalls " +
+                "im Klartext."
+        )
+    )
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Archiv exportieren") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                options.forEach { (format, label, description) ->
+                    Row(
+                        Modifier.fillMaxWidth().clickableScale { onSelect(format) }
+                            .padding(vertical = 6.dp),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        RadioButton(selected = false, onClick = { onSelect(format) })
+                        Column(Modifier.padding(start = 4.dp)) {
+                            Text(label, fontWeight = FontWeight.Medium)
+                            Text(
+                                description,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Abbrechen") } }
+    )
+}
+
+/** Shows what an import file contains before anything is written to the vault. */
+@Composable
+private fun ImportPreviewDialog(
+    preview: VaultTransfer.Preview,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val dayFmt = remember { SimpleDateFormat("dd.MM.yyyy", Locale.GERMANY) }
+    val kind = when (preview.format) {
+        VaultFormat.ENCRYPTED -> "Verschlüsselte Sicherung"
+        VaultFormat.JSON -> "JSON-Export"
+        VaultFormat.CSV -> "CSV-Export"
+    }
+    val range = if (preview.oldest != null && preview.newest != null)
+        "${dayFmt.format(Date(preview.oldest))} – ${dayFmt.format(Date(preview.newest))}"
+    else "—"
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Import prüfen") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("Erkannt: $kind")
+                Text("Enthaltene Nachrichten: ${preview.count}")
+                Text("Zeitraum: $range")
+                preview.exported?.let { Text("Erstellt: $it") }
+                Spacer(Modifier.padding(4.dp))
+                Text(
+                    "Der Import fügt nur hinzu. Bereits vorhandene Nachrichten bleiben " +
+                        "unverändert, nichts wird überschrieben oder gelöscht.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm, enabled = preview.count > 0) { Text("Importieren") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Abbrechen") } }
     )
 }
 

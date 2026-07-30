@@ -16,22 +16,28 @@ object VaultCodec {
     private const val HEADER = "KPVAULT\t1"
     private const val COLUMNS = 12
 
+    /** Header including its newline — for writing the payload record by record. */
+    const val HEADER_LINE = "$HEADER\n"
+
+    /** A single message as one payload line, so an export can stream instead of building it all. */
+    fun row(m: CapturedMessage): String = buildString {
+        append(esc(m.id)).append('\t')
+        append(esc(m.packageName)).append('\t')
+        append(esc(m.appLabel)).append('\t')
+        append(esc(m.conversationKey)).append('\t')
+        append(esc(m.conversation)).append('\t')
+        append(esc(m.sender)).append('\t')
+        append(if (m.isGroup) '1' else '0').append('\t')
+        append(esc(m.text)).append('\t')
+        append(m.messageTime).append('\t')
+        append(m.capturedAt).append('\t')
+        append(if (m.deletionSuspected) '1' else '0').append('\t')
+        append(if (m.editSuperseded) '1' else '0').append('\n')
+    }
+
     fun encode(messages: List<CapturedMessage>): String = buildString {
-        append(HEADER).append('\n')
-        for (m in messages) {
-            append(esc(m.id)).append('\t')
-            append(esc(m.packageName)).append('\t')
-            append(esc(m.appLabel)).append('\t')
-            append(esc(m.conversationKey)).append('\t')
-            append(esc(m.conversation)).append('\t')
-            append(esc(m.sender)).append('\t')
-            append(if (m.isGroup) '1' else '0').append('\t')
-            append(esc(m.text)).append('\t')
-            append(m.messageTime).append('\t')
-            append(m.capturedAt).append('\t')
-            append(if (m.deletionSuspected) '1' else '0').append('\t')
-            append(if (m.editSuperseded) '1' else '0').append('\n')
-        }
+        append(HEADER_LINE)
+        for (m in messages) append(row(m))
     }
 
     /** @throws IllegalArgumentException on a wrong header or malformed row. */

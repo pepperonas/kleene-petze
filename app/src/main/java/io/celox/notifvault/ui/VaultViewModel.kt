@@ -9,9 +9,13 @@ import io.celox.notifvault.data.ConversationSummary
 import io.celox.notifvault.data.DatabaseProvider
 import io.celox.notifvault.data.MessageDao
 import io.celox.notifvault.data.SettingsStore
+import io.celox.notifvault.util.VaultFormat
+import io.celox.notifvault.util.VaultTransfer
 import io.celox.notifvault.util.escapeLike
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -60,6 +64,40 @@ class VaultViewModel(app: Application) : AndroidViewModel(app) {
     fun clearAll() = viewModelScope.launch { dao.clear() }
 
     suspend fun exportAll() = dao.exportAll()
+
+    /**
+     * Streams the whole archive into [out] — the file is written block by block, so the export
+     * does not depend on the archive fitting in memory.
+     * @return number of exported messages.
+     */
+    suspend fun exportTo(
+        out: java.io.OutputStream,
+        format: VaultFormat,
+        passphrase: CharArray?
+    ): Int = withContext(Dispatchers.IO) {
+        VaultTransfer.export(dao, out, format, passphrase, total = totalCount.value)
+    }
+
+    /** Reads an import file without writing anything, so the user can confirm what it holds. */
+    suspend fun previewImport(
+        format: VaultFormat,
+        open: () -> java.io.InputStream,
+        passphrase: CharArray?
+    ): Pair<VaultTransfer.Preview, List<CapturedMessage>?> = withContext(Dispatchers.IO) {
+        VaultTransfer.preview(format, open, passphrase)
+    }
+
+    /** Applies a previewed import in batches, merging via [importBackup]. */
+    suspend fun applyImport(
+        format: VaultFormat,
+        open: () -> java.io.InputStream,
+        decrypted: List<CapturedMessage>?
+    ): VaultTransfer.Result = withContext(Dispatchers.IO) {
+        VaultTransfer.apply(format, open, decrypted) { batch ->
+            val (imported, present) = importBackup(batch)
+            VaultTransfer.Result(imported, present)
+        }
+    }
 
     fun setCaptureAll(value: Boolean) = viewModelScope.launch { settings.setCaptureAll(value) }
     fun setMonitored(packages: Set<String>) = viewModelScope.launch { settings.setMonitored(packages) }

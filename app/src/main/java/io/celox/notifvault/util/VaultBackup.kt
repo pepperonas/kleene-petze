@@ -31,6 +31,27 @@ object VaultBackup {
     private const val KEY_BITS = 256
     private const val GCM_TAG_BITS = 128
 
+    /**
+     * Streaming counterpart of [encrypt]: writes the container header to [out] and returns a
+     * writer that encrypts as it goes, so an export never holds the whole archive in memory.
+     * The GCM tag is emitted when the returned writer is closed — closing it is mandatory.
+     *
+     * There is deliberately no streaming *decrypt*: `CipherInputStream` swallows
+     * `AEADBadTagException` and simply reports end-of-stream, so a wrong passphrase would look
+     * like an empty backup instead of an error. [decrypt] keeps using `doFinal`, which throws.
+     */
+    fun encryptingWriter(out: java.io.OutputStream, passphrase: CharArray): java.io.Writer {
+        val rnd = SecureRandom()
+        val salt = ByteArray(SALT_LEN).also { rnd.nextBytes(it) }
+        val iv = ByteArray(IV_LEN).also { rnd.nextBytes(it) }
+        out.write(MAGIC); out.write(salt); out.write(iv)
+
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.ENCRYPT_MODE, deriveKey(passphrase, salt), GCMParameterSpec(GCM_TAG_BITS, iv))
+        return GZIPOutputStream(javax.crypto.CipherOutputStream(out, cipher))
+            .writer(Charsets.UTF_8)
+    }
+
     fun encrypt(payload: String, passphrase: CharArray): ByteArray {
         val rnd = SecureRandom()
         val salt = ByteArray(SALT_LEN).also { rnd.nextBytes(it) }

@@ -21,8 +21,12 @@ object ExportNaming {
     }
 
     /** Suggested SAF file name for an encrypted vault backup, e.g. `kleene-petze-2026-07-26.kpvault`. */
-    fun backupFileName(dateStamp: String): String {
+    fun backupFileName(dateStamp: String): String =
+        exportFileName(dateStamp, VaultFormat.ENCRYPTED)
+
+    /** Suggested SAF file name for any export format, e.g. `kleene-petze-2026-07-30.json`. */
+    fun exportFileName(dateStamp: String, format: VaultFormat): String {
         val safe = dateStamp.replace(Regex("[^A-Za-z0-9-]+"), "-").trim('-')
-        return "kleene-petze-$safe.${VaultBackup.FILE_EXTENSION}"
+        return "kleene-petze-$safe.${format.extension}"
     }
 }

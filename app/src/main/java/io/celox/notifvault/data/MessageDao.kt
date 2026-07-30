@@ -74,6 +74,12 @@ interface MessageDao {
     @Query("SELECT * FROM messages ORDER BY messageTime DESC")
     suspend fun exportAll(): List<CapturedMessage>
 
+    // Streaming export reads the archive in blocks instead of materialising all of it: the old
+    // path held the full list, the serialised string, the gzip buffer and the ciphertext at the
+    // same time. Ordered by the primary key so paging stays stable while rows keep arriving.
+    @Query("SELECT * FROM messages ORDER BY id LIMIT :limit OFFSET :offset")
+    suspend fun exportChunk(limit: Int, offset: Int): List<CapturedMessage>
+
     @Query("SELECT COUNT(*) FROM messages")
     fun count(): Flow<Int>
 

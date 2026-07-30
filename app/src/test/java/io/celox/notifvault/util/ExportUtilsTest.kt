@@ -2,10 +2,15 @@ package io.celox.notifvault.util
 
 import io.celox.notifvault.data.CapturedMessage
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.StringReader
 
+/**
+ * The per-chat export. It writes the same two formats the importer reads, so the property that
+ * matters most is that a chat can be exported and read back unchanged — the previous CSV shape
+ * could not, because it flattened newlines and omitted three columns.
+ */
 class ExportUtilsTest {
 
     private fun msg(
@@ -31,120 +36,102 @@ class ExportUtilsTest {
         editSuperseded = edited
     )
 
-    private val header = "Zeit;Erfasst;App;Chat;Absender;Gruppe;Gelöscht;Bearbeitet;Text\n"
+    private fun readCsv(s: String) = mutableListOf<CapturedMessage>()
+        .also { out -> VaultCsv.parse(StringReader(s)) { out += it } }
+
+    private fun readJson(s: String) = mutableListOf<CapturedMessage>()
+        .also { out -> VaultJson.parse(StringReader(s)) { out += it } }
 
     // ---- CSV ----
 
     @Test
     fun `csv starts with the header row`() {
-        assertTrue(ExportUtils.toCsv(emptyList()).startsWith(header))
+        assertTrue(ExportUtils.toCsv(emptyList()).startsWith(VaultCsv.HEADER))
     }
 
     @Test
     fun `csv of empty list is header only`() {
-        assertEquals(header, ExportUtils.toCsv(emptyList()))
+        assertEquals(VaultCsv.HEADER, ExportUtils.toCsv(emptyList()))
     }
 
     @Test
-    fun `csv leaves plain fields unquoted and maps the flags`() {
-        val csv = ExportUtils.toCsv(listOf(msg("Hallo", isGroup = false)))
-        assertTrue(csv.contains(";WhatsApp;Alice;Alice;nein;nein;nein;Hallo"))
-        val group = ExportUtils.toCsv(listOf(msg("Hi", isGroup = true)))
-        assertTrue(group.contains(";ja;nein;nein;Hi"))
-        val deleted = ExportUtils.toCsv(listOf(msg("Weg", deleted = true)))
-        assertTrue(deleted.contains(";nein;ja;nein;Weg"))
-        val edited = ExportUtils.toCsv(listOf(msg("Alt", edited = true)))
-        assertTrue(edited.contains(";nein;nein;ja;Alt"))
+    fun `csv carries the verdict and group columns`() {
+        assertTrue(ExportUtils.toCsv(listOf(msg("Hallo", isGroup = false))).contains(";nein;"))
+        assertTrue(ExportUtils.toCsv(listOf(msg("Hi", isGroup = true))).contains(";ja;"))
+        assertEquals(true, readCsv(ExportUtils.toCsv(listOf(msg("Weg", deleted = true))))
+            .single().deletionSuspected)
+        assertEquals(true, readCsv(ExportUtils.toCsv(listOf(msg("Alt", edited = true))))
+            .single().editSuperseded)
     }
 
     @Test
-    fun `csv quotes fields containing the separator`() {
-        val csv = ExportUtils.toCsv(listOf(msg("preis;menge")))
-        assertTrue(csv.contains("\"preis;menge\""))
+    fun `csv quotes separators and doubles quotes`() {
+        assertTrue(ExportUtils.toCsv(listOf(msg("preis;menge"))).contains("\"preis;menge\""))
+        assertTrue(ExportUtils.toCsv(listOf(msg("sag \"hallo\""))).contains("\"sag \"\"hallo\"\"\""))
+    }
+
+    // This is the behaviour that changed: newlines used to be replaced by spaces, which quietly
+    // altered the archived message. They are preserved inside the quoted field now.
+    @Test
+    fun `csv preserves newlines inside a message`() {
+        val multiline = msg("zeile1\nzeile2")
+        assertEquals(multiline, readCsv(ExportUtils.toCsv(listOf(multiline))).single())
+        // Also exact for CRLF: inside a quoted field the \r is content, not a row terminator —
+        // only an unquoted \r\n ends a row.
+        val crlf = msg("zeile1\r\nzeile2")
+        assertEquals(crlf, readCsv(ExportUtils.toCsv(listOf(crlf))).single())
+        val bareCr = msg("a\rb")
+        assertEquals(bareCr, readCsv(ExportUtils.toCsv(listOf(bareCr))).single())
     }
 
     @Test
-    fun `csv doubles embedded quotes`() {
-        val csv = ExportUtils.toCsv(listOf(msg("sag \"hallo\"")))
-        assertTrue(csv.contains("\"sag \"\"hallo\"\"\""))
-    }
-
-    @Test
-    fun `csv flattens newlines to spaces so rows stay intact`() {
-        val csv = ExportUtils.toCsv(listOf(msg("zeile1\nzeile2")))
-        assertTrue(csv.contains("\"zeile1 zeile2\""))
-        // exactly one data row → header newline + one row newline = 2 line breaks total
-        assertEquals(2, csv.count { it == '\n' })
-    }
-
-    @Test
-    fun `csv flattens carriage returns too`() {
-        val crlf = ExportUtils.toCsv(listOf(msg("zeile1\r\nzeile2")))
-        assertTrue(crlf.contains("\"zeile1 zeile2\""))
-        assertFalse(crlf.contains("\r"))
-        val bareCr = ExportUtils.toCsv(listOf(msg("a\rb")))
-        assertTrue(bareCr.contains("\"a b\""))
+    fun `csv round trips a whole chat`() {
+        val chat = listOf(
+            msg("Hallo", conversation = "Familie", isGroup = true),
+            msg("a;b \"c\"\nd", conversation = "Familie", isGroup = true, deleted = true),
+            msg("Ümlaut 😀", conversation = "Familie", isGroup = true, edited = true)
+        )
+        assertEquals(chat, readCsv(ExportUtils.toCsv(chat)))
     }
 
     // ---- JSON ----
 
     @Test
-    fun `json is a bracketed array`() {
-        val json = ExportUtils.toJson(listOf(msg("x"))).trim()
-        assertTrue(json.startsWith("["))
-        assertTrue(json.endsWith("]"))
+    fun `json round trips a whole chat`() {
+        val chat = listOf(
+            msg("Hallo"),
+            msg("a\"b\\c\td\ne"),
+            msg("\u0001 Steuerzeichen", deleted = true, edited = true)
+        )
+        assertEquals(chat, readJson(ExportUtils.toJson(chat)))
     }
 
     @Test
-    fun `json of empty list is an empty array`() {
-        assertEquals("[\n]\n", ExportUtils.toJson(emptyList()))
+    fun `json of empty list is a valid empty document`() {
+        val json = ExportUtils.toJson(emptyList())
+        assertTrue(json.contains("\"count\": 0"))
+        assertEquals(emptyList<CapturedMessage>(), readJson(json))
     }
 
     @Test
-    fun `json renders the group flag as a boolean literal`() {
+    fun `json encodes booleans as booleans`() {
         assertTrue(ExportUtils.toJson(listOf(msg("x", isGroup = true))).contains("\"group\":true"))
         assertTrue(ExportUtils.toJson(listOf(msg("x", isGroup = false))).contains("\"group\":false"))
+        val flagged = ExportUtils.toJson(listOf(msg("x", deleted = true, edited = true)))
+        assertTrue(flagged.contains("\"deleted\":true"))
+        assertTrue(flagged.contains("\"edited\":true"))
     }
 
     @Test
-    fun `json is lossless - epoch times, package, key and verdict flags`() {
-        val json = ExportUtils.toJson(listOf(msg("x", deleted = true, edited = true)))
-        assertTrue(json.contains("\"timeMs\":1700000000000"))
-        assertTrue(json.contains("\"capturedAtMs\":1700000000000"))
-        assertTrue(json.contains("\"packageName\":\"com.whatsapp\""))
-        assertTrue(json.contains("\"conversationKey\":\"key-Alice\""))
-        assertTrue(json.contains("\"deleted\":true"))
-        assertTrue(json.contains("\"edited\":true"))
-        val plain = ExportUtils.toJson(listOf(msg("x")))
-        assertTrue(plain.contains("\"deleted\":false"))
-        assertTrue(plain.contains("\"edited\":false"))
+    fun `json escapes control characters so the file stays parseable`() {
+        assertTrue(ExportUtils.toJson(listOf(msg("a\tb"))).contains("\\t"))
+        assertTrue(ExportUtils.toJson(listOf(msg("a\r\nb"))).contains("\\r\\n"))
+        assertTrue(ExportUtils.toJson(listOf(msg("a\u0001b"))).contains("\\u0001"))
     }
 
     @Test
-    fun `json escapes quotes and backslashes`() {
-        assertTrue(ExportUtils.toJson(listOf(msg("a\"b"))).contains("\"text\":\"a\\\"b\""))
-        assertTrue(ExportUtils.toJson(listOf(msg("a\\b"))).contains("\"text\":\"a\\\\b\""))
-    }
-
-    @Test
-    fun `json escapes newlines and carriage returns`() {
-        val json = ExportUtils.toJson(listOf(msg("a\r\nb")))
-        assertTrue(json.contains("a\\r\\nb"))
-        assertFalse(json.contains("\r"))
-    }
-
-    @Test
-    fun `json escapes tabs and other control characters`() {
-        assertTrue(ExportUtils.toJson(listOf(msg("a\tb"))).contains("\"text\":\"a\\tb\""))
-        // U+0001 must not appear raw — strict parsers reject unescaped control chars.
-        val json = ExportUtils.toJson(listOf(msg("a\u0001b")))
-        assertTrue(json.contains("\"text\":\"a\\u0001b\""))
-        assertFalse(json.contains('\u0001'))
-    }
-
-    @Test
-    fun `json separates multiple objects with commas`() {
-        val json = ExportUtils.toJson(listOf(msg("one"), msg("two")))
-        assertEquals(1, json.split("},").size - 1)
+    fun `json keeps one record per line`() {
+        val json = ExportUtils.toJson(listOf(msg("one"), msg("two\nlines")))
+        assertEquals(2, json.lines().count { VaultJson.isRecord(it.trim()) })
     }
 }

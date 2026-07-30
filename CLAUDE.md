@@ -20,7 +20,7 @@ Single Gradle module (`:app`), Kotlin + Jetpack Compose, minSdk 26 / target+comp
 ./gradlew assembleDebug        # APK → app/build/outputs/apk/debug/
 ./gradlew installDebug         # build + install to connected device/emulator
 ./gradlew lint                 # Android lint
-./gradlew testDebugUnitTest    # 125 JVM unit tests (MessageId, Grouping, Deletion, Noise, ExportUtils, ExportNaming, VaultCodec, VaultBackup, BackupMerge, RetentionPolicy, Format, SearchUtils)
+./gradlew testDebugUnitTest    # 157 JVM unit tests (MessageId, Grouping, Deletion, Noise, ExportUtils, ExportNaming, VaultJson, VaultCsv, VaultFormat, VaultTransfer, VaultCodec, VaultBackup, BackupMerge, RetentionPolicy, Format, SearchUtils)
 ./gradlew testDebugUnitTest --tests "io.celox.notifvault.notif.MessageIdTest"   # single test class
 ```
 
@@ -172,9 +172,30 @@ The whole app is one pipeline: a system notification → a stored, encrypted row
    `Format.kt` (date/time, `identityColor`, `initials`). Theme in `ui/theme/`.
 
 6. **`util/`** — `PermissionUtils` (notification-access check via `enabled_notification_listeners`, battery-
-   optimization exemption), `ExportUtils` (hand-rolled, **lossless** CSV/JSON serialization incl.
-   control-char escaping, capture time and deleted/edited verdicts), `ShareExport` (shared
-   serialize-on-IO + FileProvider share-sheet helper used by the full and per-chat exports),
+   optimization exemption).
+   **Export/Import (v1.7.0)** — one archive, three interchangeable formats, encryption optional:
+   **`VaultFormat`** (`ENCRYPTED`/`JSON`/`CSV` + `detect(prefix)`) makes encryption a property of the format
+   rather than a second code path, and lets a single "import" button sniff the file instead of asking the
+   user to name it. **`VaultJson`** is the canonical plain format: an ordinary JSON envelope but with
+   **exactly one message object per line**, so `jq` sees valid JSON while the importer streams it line by
+   line. Its parser is hand-rolled for the flat schema — `android.util.JsonReader`/`org.json` are framework
+   classes the JVM tests cannot run, and the codebase keeps decision logic testable. **`VaultCsv`** is
+   RFC-4180 with all 14 columns; it replaces an export that dropped `id`/`packageName`/`conversationKey`
+   *and* rewrote newlines to spaces (a lossy export of an evidence archive is a defect), which is why its
+   reader is a character state machine — quoted fields legitimately contain line breaks. **`VaultTransfer`**
+   streams both directions: `export` pages the DB via `MessageDao.exportChunk` straight into the
+   `OutputStream` (the old path held list + string + gzip + ciphertext at once), `preview` reports
+   count/range **before** anything is written, `apply` merges in `CHUNK`-sized batches. Import is
+   non-destructive by construction (content-hash ids + insert IGNORE), so re-importing is a no-op.
+   **Asymmetry on purpose:** encryption streams out via `VaultBackup.encryptingWriter`
+   (`GZIPOutputStream(CipherOutputStream(…))`, GCM tag on close) but decryption stays a single `doFinal` —
+   `CipherInputStream` swallows `AEADBadTagException` and reports EOF, so a wrong passphrase would look
+   like an empty backup instead of an error. `VaultTransferTest` round-trips all three formats through the
+   real engine with a fake DAO, including >2 chunks and the wrong-passphrase case.
+   `ExportUtils` builds the same two formats in memory for the *per-chat* export (small enough), so a shared
+   chat can be re-imported too; `ShareExport` (serialize-on-IO + FileProvider share-sheet helper, per-chat
+   only now — the full archive writes straight to a SAF file rather than sending plaintext through the
+   share chain),
    `ExportNaming` (file names for chat exports/backups — a chat title is remote-controlled text, so
    everything but letters/digits/umlauts collapses to `_`: no path separator, no `..`, length-capped),
    `VaultCodec` + `VaultBackup` (**encrypted vault backup**: versioned escaped-TSV payload → gzip →

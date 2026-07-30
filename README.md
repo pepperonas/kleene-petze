@@ -100,6 +100,28 @@ Kontaktnamen im Text – prüfte man nur den Text, rutschte er durch und tauchte
 Titel zum Chatnamen wird, als eigener Chat „Verpasster Sprachanruf" in der Übersicht auf
 (genau das behebt v1.6.4). Bereits erfasstes Rauschen wird beim Update einmalig entfernt.
 
+## Export & Import (v1.7.0)
+
+Unter *Einstellungen → Export & Import* lässt sich das komplette Archiv in eine Datei schreiben
+und genauso wieder einlesen. **Verschlüsselung ist eine Wahl, kein Zwang** – alle drei Formate
+sind vollständig und wieder importierbar:
+
+| Format | Datei | wofür |
+|---|---|---|
+| **Verschlüsselt** | `.kpvault` | AES-256-GCM, Schlüssel per PBKDF2-HmacSHA256 (210 000 Runden). Für alles, was das Gerät verlässt – ohne Passphrase ist die Datei für niemanden lesbar, auch nicht für dich. |
+| **JSON** | `.json` | Klartext, vollständig, zusätzlich mit `jq`/Skripten auswertbar. Gültiges JSON, aber **eine Nachricht pro Zeile**, damit der Import zeilenweise streamen kann. |
+| **CSV** | `.csv` | Klartext für Tabellenprogramme (semikolongetrennt, RFC 4180). Enthält alle Spalten, auch Zeilenumbrüche innerhalb einer Nachricht. |
+
+Beim **Import genügt ein Knopf**: das Format wird an den ersten Bytes der Datei erkannt, eine
+Passphrase wird nur bei der verschlüsselten Variante abgefragt. Vor dem Schreiben zeigt ein
+Dialog, was die Datei enthält (Anzahl, Zeitraum, erkanntes Format). Der Import **fügt nur hinzu** –
+IDs sind Inhalts-Hashes, vorhandene Nachrichten bleiben unverändert, dieselbe Datei zweimal
+einzulesen ändert nichts.
+
+Export und Import laufen **gestreamt**: die Datenbank wird blockweise gelesen und direkt in die
+Datei geschrieben, beim Import werden die Datensätze einzeln geparst und in Blöcken übernommen.
+Das Archiv muss also nie als Ganzes in den Arbeitsspeicher passen.
+
 ## Was geht – und was nicht
 
 | Funktion | Status |
@@ -110,10 +132,11 @@ Titel zum Chatnamen wird, als eigener Chat „Verpasster Sprachanruf" in der Üb
 | Dienst-/Status-Benachrichtigungen + Anrufe werden gefiltert (nicht archiviert) | ✅ |
 | Chat-Ansicht: Datumstrenner, Sprecher-Gruppierung, Avatare | ✅ |
 | Volltextsuche (mit Treffer-Hervorhebung), App-Filter in der Übersicht | ✅ |
-| Export (CSV/JSON, verlustfrei inkl. Erfassungszeit + Gelöscht-/Bearbeitet-Status), auch pro Chat | ✅ |
+| **Export & Import des ganzen Archivs — Verschlüsselung optional** (`.kpvault` verschlüsselt / JSON / CSV, alle drei wieder einlesbar) | ✅ |
+| Export pro Chat (CSV/JSON, verlustfrei inkl. Erfassungszeit + Gelöscht-/Bearbeitet-Status) | ✅ |
 | Nachricht kopieren/teilen + Details (Long-Press auf die Sprechblase) | ✅ |
 | Verschlüsselung (SQLCipher/AES-256), Biometrie-Sperre (re-lockt im Hintergrund) | ✅ |
-| **Verschlüsseltes Backup/Restore** (`.kpvault`, Passphrase → PBKDF2 + AES-256-GCM; Import ist merge-sicher) | ✅ |
+| Verschlüsselung des Exports (`.kpvault`, Passphrase → PBKDF2 + AES-256-GCM; Import ist merge-sicher) | ✅ |
 | Capture-Status (Zugriff/Dienst/letzte Erfassung) + Warn-Banner | ✅ |
 | Optionale Aufbewahrungsdauer (30–365 Tage, Standard: unbegrenzt) | ✅ |
 | **Gelöschte Nachrichten markieren** (Original hervorgehoben + 🗑-Badge, gesammelt in der „Aufgedeckt"-Ansicht) | ⚠️ nur wenn die Nachricht gelöscht wird, *während sie noch ungelesen im Benachrichtigungs-Shade liegt* (dann ersetzt WhatsApp den Text durch „…gelöscht", den wir der gespeicherten Originalnachricht zuordnen); Platzhalter in 10 Sprachen erkannt |
@@ -140,7 +163,7 @@ Reine JVM-Unit-Tests (kein Emulator nötig):
 ./gradlew testDebugUnitTest
 ```
 
-Aktuell **125 Tests**, alle ohne Android-Framework (die kritische Logik liegt bewusst in
+Aktuell **157 Tests**, alle ohne Android-Framework (die kritische Logik liegt bewusst in
 frameworkfreien Modulen). Abgedeckt:
 
 - **Dedup-Schlüssel** – `messageContentId` mit fixem SHA-256-Anker (`MessageId`)
@@ -148,7 +171,12 @@ frameworkfreien Modulen). Abgedeckt:
   Gruppen ohne eigene ID landen weder beim Absender noch im Einzelchat (`Grouping`)
 - **Lösch-Platzhalter** in 10 Sprachen inkl. Beinahe-Treffern, die *nicht* anschlagen dürfen (`Deletion`)
 - **Rauschfilter** – Dienst-/Anruf-Benachrichtigungen erkannt, echte Nachrichten nie verworfen (`Noise`)
-- **Export** – CSV-/JSON-Escaping inkl. Steuerzeichen, verlustfreie Felder (`ExportUtils`)
+- **Export/Import-Round-Trip** – Archiv exportiert und wieder eingelesen, alle drei Formate, über
+  mehrere Blöcke hinweg, inkl. falscher Passphrase und doppeltem Import (`VaultTransfer`)
+- **JSON-Format** – verlustfrei inkl. Umbrüchen/Tabs/Emoji, eine Nachricht pro Zeile (`VaultJson`)
+- **CSV-Format** – RFC 4180 mit Umbrüchen in Feldern, fremde Dateien werden abgelehnt (`VaultCsv`)
+- **Formaterkennung** – verschlüsselt/JSON/CSV an den ersten Bytes (`VaultFormat`)
+- **Export pro Chat** – Escaping inkl. Steuerzeichen, verlustfreie Felder (`ExportUtils`)
 - **Dateinamen** – Chat-Titel als Dateiname: keine Pfadtrenner, kein `..`, Längenlimit (`ExportNaming`)
 - **Backup-Serialisierung** – Round-Trip inkl. Tabs/Newlines/Unicode, defekte Zeilen (`VaultCodec`)
 - **Backup-Verschlüsselung** – Round-Trip, falsche Passphrase, manipulierte Bytes (`VaultBackup`)
@@ -192,11 +220,17 @@ notif/   MessageExtractor – Notification → CapturedMessage(s)
 service/ NotificationCaptureService – der Listener (Edit-Erkennung, Heartbeat, Status)
 ui/      Compose-Screens (Onboarding, Home, Conversation, Flagged/„Aufgedeckt", Settings)
          + ViewModel, Components (Avatar), Format (Datum/Zeit, Farben, Initialen)
-util/    PermissionUtils, ExportUtils, ShareExport, ExportNaming, SearchUtils,
-         VaultCodec + VaultBackup (verschlüsseltes Backup/Restore)
+util/    PermissionUtils, ExportNaming, SearchUtils, ShareExport (Teilen pro Chat)
+         VaultFormat  – Formaterkennung (verschlüsselt / JSON / CSV)
+         VaultJson    – Klartextformat, eine Nachricht pro Zeile (streambar)
+         VaultCsv     – verlustfreies RFC-4180-CSV inkl. Umbrüchen in Feldern
+         VaultTransfer– gestreamter Export/Import + Vorschau, Merge in Blöcken
+         VaultCodec + VaultBackup (verschlüsselter Container .kpvault)
+         ExportUtils  – dieselben Formate im Speicher, für den Export pro Chat
 schemas/ Room-Schema-JSON (Referenz für handgeschriebene Migrationen)
 src/test JUnit-Unit-Tests (MessageId, Grouping, Deletion, Noise, ExportUtils, ExportNaming,
-         VaultCodec, VaultBackup, BackupMerge, RetentionPolicy, Format, SearchUtils)
+         VaultJson, VaultCsv, VaultFormat, VaultTransfer, VaultCodec, VaultBackup,
+         BackupMerge, RetentionPolicy, Format, SearchUtils)
 ```
 
 ## Release erstellen (Maintainer)
