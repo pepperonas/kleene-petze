@@ -93,6 +93,42 @@ class NoiseTest {
         assertFalse(isNoiseText(text))
     }
 
+    // A progress bar is never a message. This is the language-independent catch for WhatsApp's
+    // media upload, which had filled a junk chat with thousands of "Sending video to …" rows.
+    @Test
+    fun `a notification with a progress bar is not a message`() {
+        assertTrue(isNonMessageNotification(false, false, null, hasProgress = true))
+        assertFalse(isNonMessageNotification(false, false, null, hasProgress = false))
+    }
+
+    @Test
+    fun `media transfer progress is noise`() {
+        assertTrue(isNoiseText("Sending video to Michaela Pampel"))
+        assertTrue(isNoiseText("Sending photo to Alice"))
+        assertTrue(isNoiseText("Sending voice message to Bob"))
+        assertTrue(isNoiseText("Video wird gesendet"))
+        assertTrue(isNoiseText("Datei wird heruntergeladen"))
+        assertTrue(isNoiseText("Downloading media"))
+    }
+
+    // "Sending…" on its own is a progress update; as a substring it would match real sentences.
+    @Test
+    fun `a bare sending placeholder counts only as the whole text`() {
+        assertTrue(isNoiseText("Sending..."))
+        assertTrue(isNoiseText("Sending…"))
+        assertTrue(isNoiseText("  wird gesendet  "))
+        assertFalse(isNoiseText("Sending you the link tomorrow"))
+        assertFalse(isNoiseText("Das Paket wird gesendet, sobald es da ist"))
+    }
+
+    // Found on the device: WhatsApp words an ongoing call this way.
+    @Test
+    fun `an active call is noise`() {
+        assertTrue(isNoiseText("Aktiver Sprachanruf"))
+        assertTrue(isNoiseText("Aktiver Videoanruf"))
+        assertTrue(isNoiseText("Active call"))
+    }
+
     @Test
     fun `real messages are never dropped`() {
         for (t in listOf(
@@ -113,7 +149,7 @@ class NoiseTest {
 
     @Test
     fun `markers are lowercase so the contains match works`() {
-        for (m in SERVICE_NOISE_MARKERS + CALL_NOISE_MARKERS) {
+        for (m in SERVICE_NOISE_MARKERS + CALL_NOISE_MARKERS + MEDIA_NOISE_MARKERS) {
             assertTrue(m, m == m.lowercase())
             assertTrue(m, m.isNotBlank())
         }

@@ -19,9 +19,11 @@ object NoiseCleanup {
     /**
      * 1 = service/status texts, 2 = + call notifications (v1.6.3), 3 = + match the chat title,
      * not just the message text (v1.6.4 — a missed call stores its wording as the title, so v2
-     * matched nothing and left the call chats in place). Bump whenever the matching widens.
+     * matched nothing and left the call chats in place), 4 = + media transfer progress
+     * ("Sending video to …") and the "Aktiver Sprachanruf" wording (v1.7.2, both found on a real
+     * device). Bump whenever the matching widens.
      */
-    const val VERSION = 3
+    const val VERSION = 4
 
     suspend fun runOnce(context: Context) {
         val ctx = context.applicationContext

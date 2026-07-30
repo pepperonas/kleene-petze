@@ -46,7 +46,14 @@ class MessageExtractor(private val pm: PackageManager) {
         if (isNonMessageNotification(
                 ongoing = n.flags and Notification.FLAG_ONGOING_EVENT != 0,
                 foregroundService = n.flags and Notification.FLAG_FOREGROUND_SERVICE != 0,
-                category = runCatching { n.category }.getOrNull()
+                category = runCatching { n.category }.getOrNull(),
+                // A progress bar means a transfer, not a message — this is what WhatsApp's
+                // "Sending video to …" upload notification carries.
+                hasProgress = n.extras?.let {
+                    it.containsKey(Notification.EXTRA_PROGRESS_MAX) ||
+                        it.containsKey(Notification.EXTRA_PROGRESS) ||
+                        it.containsKey(Notification.EXTRA_PROGRESS_INDETERMINATE)
+                } == true
             )
         ) return ExtractResult.EMPTY
 

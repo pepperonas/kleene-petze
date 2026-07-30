@@ -31,10 +31,19 @@ private val NOISE_CATEGORIES = setOf(
 
 /**
  * True when the whole notification is a status/service notification rather than a message.
- * [ongoing] = `FLAG_ONGOING_EVENT`, [foregroundService] = `FLAG_FOREGROUND_SERVICE`.
+ * [ongoing] = `FLAG_ONGOING_EVENT`, [foregroundService] = `FLAG_FOREGROUND_SERVICE`,
+ * [hasProgress] = the notification carries `EXTRA_PROGRESS*`.
+ *
+ * The progress check is what catches WhatsApp's media upload ("Sending video to Alice"): a
+ * progress bar is never a message, and unlike a phrase list it works in every language.
  */
-fun isNonMessageNotification(ongoing: Boolean, foregroundService: Boolean, category: String?): Boolean =
-    ongoing || foregroundService || category?.lowercase() in NOISE_CATEGORIES
+fun isNonMessageNotification(
+    ongoing: Boolean,
+    foregroundService: Boolean,
+    category: String?,
+    hasProgress: Boolean = false
+): Boolean =
+    ongoing || foregroundService || hasProgress || category?.lowercase() in NOISE_CATEGORIES
 
 /**
  * The service phrases themselves, lowercased. Matched with `contains` so a prefixed/suffixed
@@ -84,10 +93,13 @@ val CALL_NOISE_MARKERS = listOf(
     "verpasster gruppenanruf", "verpasster anruf", "verpasste anrufe",
     "eingehender sprachanruf", "eingehender videoanruf", "eingehender anruf",
     "laufender anruf", "anruf läuft",
+    // Ongoing call, as WhatsApp actually words it on the device
+    "aktiver sprachanruf", "aktiver videoanruf", "aktiver gruppenanruf", "aktiver anruf",
     // English
     "missed voice call", "missed video call", "missed group call", "missed call",
     "incoming voice call", "incoming video call", "incoming call",
     "ongoing voice call", "ongoing video call", "ongoing call",
+    "active voice call", "active video call", "active group call", "active call",
     // Spanish
     "llamada de voz perdida", "videollamada perdida", "llamada perdida", "llamada entrante",
     // French
@@ -104,8 +116,46 @@ val CALL_NOISE_MARKERS = listOf(
     "nieodebrane połączenie", "połączenie przychodzące"
 )
 
-/** True if [text] is a known service/status or call notification text (any known language). */
+/**
+ * Media transfer progress, lowercased. WhatsApp posts one notification per upload
+ * ("Sending video to Alice") and updates it continuously, which produced thousands of rows in a
+ * single junk chat named after the app.
+ *
+ * Structurally these carry `EXTRA_PROGRESS` and are caught by [isNonMessageNotification]; this
+ * list exists for rows captured before that check and for builds that omit the progress extras.
+ * Each marker names a medium, so an ordinary sentence cannot match by accident — the bare word
+ * "sending" is handled by [WHOLE_TEXT_NOISE] instead.
+ */
+val MEDIA_NOISE_MARKERS = listOf(
+    // English — "Sending <medium> to <contact>"
+    "sending video to ", "sending photo to ", "sending image to ", "sending audio to ",
+    "sending document to ", "sending file to ", "sending gif to ", "sending sticker to ",
+    "sending media to ", "sending voice message to ",
+    "downloading video", "downloading photo", "downloading image", "downloading media",
+    "downloading file", "downloading document",
+    // German
+    "video wird gesendet", "foto wird gesendet", "bild wird gesendet", "datei wird gesendet",
+    "audio wird gesendet", "sprachnachricht wird gesendet", "dokument wird gesendet",
+    "medien werden gesendet",
+    "video wird heruntergeladen", "foto wird heruntergeladen", "bild wird heruntergeladen",
+    "datei wird heruntergeladen", "medien werden heruntergeladen"
+)
+
+/**
+ * Texts that are only noise when they are the *entire* message. "Sending…" as a substring would
+ * match ordinary sentences, but a message whose whole content is that word is a progress update.
+ */
+private val WHOLE_TEXT_NOISE = setOf(
+    "sending", "sending…", "sending...", "sending file", "sending media",
+    "wird gesendet", "wird gesendet…", "wird gesendet...",
+    "senden…", "senden...", "wird heruntergeladen", "downloading", "downloading…", "downloading..."
+)
+
+/** True if [text] is a known service, call or transfer-progress notification text. */
 fun isNoiseText(text: String): Boolean {
-    val t = text.lowercase()
-    return SERVICE_NOISE_MARKERS.any { t.contains(it) } || CALL_NOISE_MARKERS.any { t.contains(it) }
+    val t = text.lowercase().trim()
+    if (t in WHOLE_TEXT_NOISE) return true
+    return SERVICE_NOISE_MARKERS.any { t.contains(it) } ||
+        CALL_NOISE_MARKERS.any { t.contains(it) } ||
+        MEDIA_NOISE_MARKERS.any { t.contains(it) }
 }

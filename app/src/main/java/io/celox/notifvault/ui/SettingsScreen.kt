@@ -52,6 +52,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.celox.notifvault.BuildConfig
 import io.celox.notifvault.data.CapturedMessage
 import io.celox.notifvault.data.RetentionPolicy
 import io.celox.notifvault.data.SettingsStore
@@ -294,6 +295,13 @@ fun SettingsScreen(vm: VaultViewModel, onBack: () -> Unit) {
                 "lösen oft keine Benachrichtigung aus und werden daher nicht erfasst.",
                 style = MaterialTheme.typography.bodySmall
             )
+
+            HorizontalDivider(Modifier.padding(vertical = 8.dp))
+            Section("Über die App")
+            // Version comes from BuildConfig, i.e. from the APK that is actually running —
+            // the quickest way to check whether an update really landed on the device.
+            InfoRow("Version", "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
+            InfoRow("Paket", BuildConfig.APPLICATION_ID)
 
             Spacer(Modifier.padding(16.dp))
             Text(
@@ -650,6 +658,23 @@ private fun PassphraseDialog(
 private fun Section(title: String) {
     Text(title, style = MaterialTheme.typography.titleSmall,
         fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+}
+
+/** Label on the left, a read-only value on the right. */
+@Composable
+private fun InfoRow(label: String, value: String) {
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(label, style = MaterialTheme.typography.bodyLarge)
+        Text(
+            value,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
 }
 
 @Composable

@@ -89,7 +89,7 @@ In-Place-Update, auf dem die ganze Erfassung ohnehin beruht. Der Gruppenname tau
 nicht, weil er in einer Benachrichtigung fehlt und in der nächsten dasteht (der Chat
 würde sich teilen). 1:1-Chats bleiben unverändert.
 
-**Rauschfilter (v1.6.2–v1.6.4):** Nicht alles, was ein Messenger postet, ist eine
+**Rauschfilter (v1.6.2–v1.7.2):** Nicht alles, was ein Messenger postet, ist eine
 Nachricht. WhatsApps dauerhafte Dienst-Benachrichtigung („Überprüfe auf neue
 Nachrichten"), Backup-/Wiederherstellungs-Fortschritt sowie **Sprach- und Videoanrufe**
 (auch verpasste, die WhatsApp separat führt) landen nicht mehr im Archiv – strukturell
@@ -99,6 +99,13 @@ verpasster Anruf trägt seinen Wortlaut im *Titel* („Verpasster Sprachanruf") 
 Kontaktnamen im Text – prüfte man nur den Text, rutschte er durch und tauchte, weil der
 Titel zum Chatnamen wird, als eigener Chat „Verpasster Sprachanruf" in der Übersicht auf
 (genau das behebt v1.6.4). Bereits erfasstes Rauschen wird beim Update einmalig entfernt.
+
+**Medien-Fortschritt (v1.7.2):** Beim Senden von Fotos/Videos zeigt WhatsApp eine laufend
+aktualisierte Fortschritts-Benachrichtigung („Sending video to …") – auf einem echten Gerät hatten
+sich daraus **2380 Einträge** in einem Müll-Chat angesammelt. Entscheidend ist hier nicht die
+Wortliste, sondern dass eine Benachrichtigung mit **Fortschrittsbalken** (`EXTRA_PROGRESS`) nie
+eine Nachricht ist – das greift in jeder Sprache. Dasselbe Gerät zeigte außerdem, dass WhatsApp
+einen laufenden Anruf „Aktiver Sprachanruf" nennt, was keine bisherige Phrase abdeckte.
 
 ## Export & Import (v1.7.0)
 
@@ -129,7 +136,7 @@ Das Archiv muss also nie als Ganzes in den Arbeitsspeicher passen.
 | Text-Nachrichten (1:1 & Gruppen) | ✅ zuverlässig |
 | Absender + echter Zeitstempel | ✅ via MessagingStyle |
 | Korrekte Chat-Gruppierung (stabiler `conversationKey`, Gruppen auch ohne Gruppennamen) | ✅ |
-| Dienst-/Status-Benachrichtigungen + Anrufe werden gefiltert (nicht archiviert) | ✅ |
+| Dienst-/Status-Benachrichtigungen, Anrufe und Medien-Fortschritt werden gefiltert (nicht archiviert) | ✅ |
 | Chat-Ansicht: Datumstrenner, Sprecher-Gruppierung, Avatare | ✅ |
 | Volltextsuche (mit Treffer-Hervorhebung), App-Filter in der Übersicht | ✅ |
 | **Export & Import des ganzen Archivs — Verschlüsselung optional** (`.kpvault` verschlüsselt / JSON / CSV, alle drei wieder einlesbar) | ✅ |
@@ -163,7 +170,7 @@ Reine JVM-Unit-Tests (kein Emulator nötig):
 ./gradlew testDebugUnitTest
 ```
 
-Aktuell **157 Tests**, alle ohne Android-Framework (die kritische Logik liegt bewusst in
+Aktuell **161 Tests**, alle ohne Android-Framework (die kritische Logik liegt bewusst in
 frameworkfreien Modulen). Abgedeckt:
 
 - **Dedup-Schlüssel** – `messageContentId` mit fixem SHA-256-Anker (`MessageId`)

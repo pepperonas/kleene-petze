@@ -22,8 +22,8 @@ android {
         applicationId = "io.celox.notifvault"
         minSdk = 26
         targetSdk = 35
-        versionCode = 15
-        versionName = "1.7.0"
+        versionCode = 17
+        versionName = "1.7.2"
         vectorDrawables { useSupportLibrary = true }
     }
 
@@ -62,7 +62,9 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
 
-    buildFeatures { compose = true }
+    // buildConfig: the Settings screen shows the running version, which is the quickest way to
+    // tell whether an update actually landed on the device.
+    buildFeatures { compose = true; buildConfig = true }
     packaging {
         resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" }
     }

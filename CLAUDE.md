@@ -20,7 +20,7 @@ Single Gradle module (`:app`), Kotlin + Jetpack Compose, minSdk 26 / target+comp
 ./gradlew assembleDebug        # APK → app/build/outputs/apk/debug/
 ./gradlew installDebug         # build + install to connected device/emulator
 ./gradlew lint                 # Android lint
-./gradlew testDebugUnitTest    # 157 JVM unit tests (MessageId, Grouping, Deletion, Noise, ExportUtils, ExportNaming, VaultJson, VaultCsv, VaultFormat, VaultTransfer, VaultCodec, VaultBackup, BackupMerge, RetentionPolicy, Format, SearchUtils)
+./gradlew testDebugUnitTest    # 161 JVM unit tests (MessageId, Grouping, Deletion, Noise, ExportUtils, ExportNaming, VaultJson, VaultCsv, VaultFormat, VaultTransfer, VaultCodec, VaultBackup, BackupMerge, RetentionPolicy, Format, SearchUtils)
 ./gradlew testDebugUnitTest --tests "io.celox.notifvault.notif.MessageIdTest"   # single test class
 ```
 
@@ -80,12 +80,20 @@ The whole app is one pipeline: a system notification → a stored, encrypted row
    fallback (there the sender *is* the chat, and existing vaults stay grouped as they are). Group titles
    resolve `conversationTitle` → `EXTRA_TITLE` → app label.
    **Noise filter (`notif/Noise.kt`, `NoiseTest`):** two independent, narrow filters —
-   structural `isNonMessageNotification(ongoing, foregroundService, category)` drops `FLAG_ONGOING_EVENT` /
-   `FLAG_FOREGROUND_SERVICE` posts and the `service`/`progress`/`transport`/`call`/**`missed_call`**/
+   structural `isNonMessageNotification(ongoing, foregroundService, category, hasProgress)` drops
+   `FLAG_ONGOING_EVENT` / `FLAG_FOREGROUND_SERVICE` posts, notifications carrying `EXTRA_PROGRESS*`, and the
+   `service`/`progress`/`transport`/`call`/**`missed_call`**/
    `navigation`/`sys` categories (language-independent; WhatsApp's permanent "Überprüfe auf neue Nachrichten"
    is a foreground-service notification, so the platform flags it), and textual `isNoiseText` matches the
    concrete phrases as a safety net for builds that set neither: `SERVICE_NOISE_MARKERS` (14 languages +
-   backup/restore progress) and `CALL_NOISE_MARKERS`. **Calls (v1.6.3):** WhatsApp keeps voice/video calls
+   backup/restore progress), `CALL_NOISE_MARKERS` and `MEDIA_NOISE_MARKERS`, plus a `WHOLE_TEXT_NOISE` set
+   matched only against the *entire* text (a bare "Sending…" is a progress update, but as a substring it
+   would hit ordinary sentences).
+   **Media progress (v1.7.2):** WhatsApp posts one continuously-updated notification per upload
+   ("Sending video to Alice") — on a real device that had accumulated **2380 rows** in a junk chat named
+   after the app. The `hasProgress` check is the durable fix (a progress bar is never a message, in any
+   language); the marker list only exists for rows captured earlier. The same device also revealed that
+   WhatsApp words an ongoing call **"Aktiver Sprachanruf"**, which no earlier marker covered. **Calls (v1.6.3):** WhatsApp keeps voice/video calls
    in their own notification, so they became their own vault chat. Incoming/ongoing calls were already
    covered (foreground service + `CATEGORY_CALL`); a **missed** call is a plain notification with
    `CATEGORY_MISSED_CALL` whose entire content is the phrase, hence both the category and the marker list.
@@ -138,7 +146,7 @@ The whole app is one pipeline: a system notification → a stored, encrypted row
    and would trip over the umlauts), matching the **chat title as well as the message text**.
    Gated on **`NoiseCleanup.VERSION`**, not a boolean — bumping it
    re-runs the purge once on existing installs, which is how newly added markers reach older rows (v2 added
-   the call notifications, v3 the title matching). The version is claimed only *after* a completed pass:
+   the call notifications, v3 the title matching, v4 media progress + "Aktiver Sprachanruf"). The version is claimed only *after* a completed pass:
    the caller wraps this in `runCatching`, so claiming up front would turn one transient failure into
    "never again". `SettingsStore` (DataStore) holds the monitored-package set, capture-all flag,
    biometric-lock flag,
