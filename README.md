@@ -107,6 +107,36 @@ Wortliste, sondern dass eine Benachrichtigung mit **Fortschrittsbalken** (`EXTRA
 eine Nachricht ist – das greift in jeder Sprache. Dasselbe Gerät zeigte außerdem, dass WhatsApp
 einen laufenden Anruf „Aktiver Sprachanruf" nennt, was keine bisherige Phrase abdeckte.
 
+## Autostart & Selbstheilung (v1.8.0)
+
+Der größte denkbare Fehler dieser App ist nicht ein Absturz, sondern **stilles Nichtstun**: Der
+Erfassungsdienst wird nicht von der App gestartet, sondern vom System *gebunden* – und Android löst
+diese Bindung in drei Situationen, ohne es irgendwo zu melden:
+
+* **nach einem App-Update** – das System hängt den alten Code aus und bindet den neuen
+  manchmal nicht wieder ein (bekannter Plattformfehler),
+* **wenn der Hersteller den Prozess abschießt** – Samsungs „Tiefschlaf" trennt nicht höflich,
+  also läuft `onListenerDisconnected()` nie und der bisherige Selbstreparatur-Aufruf darin auch nicht,
+* **nach einem Neustart**, wenn die Bindung nicht wiederhergestellt wird.
+
+In allen drei Fällen läuft im Dienst nichts mehr, was sich melden könnte. Die Reparatur muss
+deshalb **von außen** kommen:
+
+| Mechanismus | greift |
+|---|---|
+| `BootReceiver` (`BOOT_COMPLETED`, `QUICKBOOT_POWERON`) | nach jedem Neustart |
+| derselbe Receiver auf `MY_PACKAGE_REPLACED` | nach jedem App-Update – die wahrscheinlichste Ursache dafür, dass die Erfassung „plötzlich" stand |
+| `WatchdogJobService`, alle 15 Min, `setPersisted` | jederzeit sonst; überlebt selbst einen Neustart ohne Broadcast |
+| Knopf „Neu verbinden" im Banner + in den Einstellungen | sofort, wenn du es selbst bemerkst |
+
+Alles zusammen liegt unter *Einstellungen → Autostart & Selbstheilung* und ist **standardmäßig an**.
+Dort steht auch, wann die letzte Prüfung lief. Läuft sie seit über 45 Minuten nicht mehr, ist das
+das einzige Symptom, das **kein** Neuverbinden heilen kann: dann hält das Energiesparen die ganze
+App an – die Einstellung blendet dafür direkt den Knopf zum Ausnehmen ein.
+
+Das Banner auf der Startseite sagt jetzt außerdem die Wahrheit. Vorher stand dort „verbindet sich
+meist von selbst neu" – genau die Annahme, die den Ausfall verursacht hat.
+
 ## Export & Import (v1.7.0)
 
 Unter *Einstellungen → Export & Import* lässt sich das komplette Archiv in eine Datei schreiben
@@ -145,6 +175,7 @@ Das Archiv muss also nie als Ganzes in den Arbeitsspeicher passen.
 | Verschlüsselung (SQLCipher/AES-256), Biometrie-Sperre (re-lockt im Hintergrund) | ✅ |
 | Verschlüsselung des Exports (`.kpvault`, Passphrase → PBKDF2 + AES-256-GCM; Import ist merge-sicher) | ✅ |
 | Capture-Status (Zugriff/Dienst/letzte Erfassung) + Warn-Banner | ✅ |
+| **Autostart nach Neustart & App-Update + 15-Min-Wächter**, abschaltbar in den Einstellungen | ✅ |
 | Optionale Aufbewahrungsdauer (30–365 Tage, Standard: unbegrenzt) | ✅ |
 | **Gelöschte Nachrichten markieren** (Original hervorgehoben + 🗑-Badge, gesammelt in der „Aufgedeckt"-Ansicht) | ⚠️ nur wenn die Nachricht gelöscht wird, *während sie noch ungelesen im Benachrichtigungs-Shade liegt* (dann ersetzt WhatsApp den Text durch „…gelöscht", den wir der gespeicherten Originalnachricht zuordnen); Platzhalter in 10 Sprachen erkannt |
 | **Bearbeitete Nachrichten aufdecken** (frühere Version bleibt sichtbar, ✏️-Markierung) | ⚠️ gleiche Bedingung: die Bearbeitung muss eine Benachrichtigung auslösen, solange der Chat ungelesen ist |
@@ -170,7 +201,7 @@ Reine JVM-Unit-Tests (kein Emulator nötig):
 ./gradlew testDebugUnitTest
 ```
 
-Aktuell **161 Tests**, alle ohne Android-Framework (die kritische Logik liegt bewusst in
+Aktuell **170 Tests**, alle ohne Android-Framework (die kritische Logik liegt bewusst in
 frameworkfreien Modulen). Abgedeckt:
 
 - **Dedup-Schlüssel** – `messageContentId` mit fixem SHA-256-Anker (`MessageId`)
@@ -178,6 +209,8 @@ frameworkfreien Modulen). Abgedeckt:
   Gruppen ohne eigene ID landen weder beim Absender noch im Einzelchat (`Grouping`)
 - **Lösch-Platzhalter** in 10 Sprachen inkl. Beinahe-Treffern, die *nicht* anschlagen dürfen (`Deletion`)
 - **Rauschfilter** – Dienst-/Anruf-Benachrichtigungen erkannt, echte Nachrichten nie verworfen (`Noise`)
+- **Wächter-Regeln** – wann neu gebunden wird, wann der Wächter läuft, und ab wann sein Ausbleiben
+  ein Symptom ist (inkl. zurückgestellter Uhr) (`WatchdogPolicy`)
 - **Export/Import-Round-Trip** – Archiv exportiert und wieder eingelesen, alle drei Formate, über
   mehrere Blöcke hinweg, inkl. falscher Passphrase und doppeltem Import (`VaultTransfer`)
 - **JSON-Format** – verlustfrei inkl. Umbrüchen/Tabs/Emoji, eine Nachricht pro Zeile (`VaultJson`)
@@ -225,6 +258,9 @@ notif/   MessageExtractor – Notification → CapturedMessage(s)
          Deletion – Lösch-Platzhalter-Erkennung (10 Sprachen)
          Noise – Dienst-/Status- und Anruf-Benachrichtigungen aussortieren
 service/ NotificationCaptureService – der Listener (Edit-Erkennung, Heartbeat, Status)
+         ListenerWatchdog + WatchdogJobService – Neubindung, 15-Min-Job (persistiert)
+         BootReceiver – Neubindung nach Neustart und nach App-Update
+         WatchdogPolicy – die Entscheidungen dazu, frameworkfrei und getestet
 ui/      Compose-Screens (Onboarding, Home, Conversation, Flagged/„Aufgedeckt", Settings)
          + ViewModel, Components (Avatar), Format (Datum/Zeit, Farben, Initialen)
 util/    PermissionUtils, ExportNaming, SearchUtils, ShareExport (Teilen pro Chat)
@@ -235,7 +271,8 @@ util/    PermissionUtils, ExportNaming, SearchUtils, ShareExport (Teilen pro Cha
          VaultCodec + VaultBackup (verschlüsselter Container .kpvault)
          ExportUtils  – dieselben Formate im Speicher, für den Export pro Chat
 schemas/ Room-Schema-JSON (Referenz für handgeschriebene Migrationen)
-src/test JUnit-Unit-Tests (MessageId, Grouping, Deletion, Noise, ExportUtils, ExportNaming,
+src/test JUnit-Unit-Tests (MessageId, Grouping, Deletion, Noise, WatchdogPolicy, ExportUtils,
+         ExportNaming,
          VaultJson, VaultCsv, VaultFormat, VaultTransfer, VaultCodec, VaultBackup,
          BackupMerge, RetentionPolicy, Format, SearchUtils)
 ```

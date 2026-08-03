@@ -4,6 +4,7 @@ import android.app.Application
 import io.celox.notifvault.data.DatabaseProvider
 import io.celox.notifvault.data.NoiseCleanup
 import io.celox.notifvault.data.RetentionPruner
+import io.celox.notifvault.service.ListenerWatchdog
 import kotlinx.coroutines.runBlocking
 
 class NotifVaultApp : Application() {
@@ -19,6 +20,9 @@ class NotifVaultApp : Application() {
             DatabaseProvider.get(this)
             runCatching { runBlocking { RetentionPruner.pruneIfDue(this@NotifVaultApp) } }
             runCatching { runBlocking { NoiseCleanup.runOnce(this@NotifVaultApp) } }
+            // Make sure the capture watchdog is scheduled — this covers the fresh install, where
+            // neither a reboot nor an update broadcast has happened yet.
+            runCatching { runBlocking { ListenerWatchdog.sync(this@NotifVaultApp) } }
         }.start()
     }
 }

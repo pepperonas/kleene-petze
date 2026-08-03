@@ -4,10 +4,13 @@
 
     <!-- Read every notification on this device (granted by user in system settings).
          Intentionally minimal: no INTERNET, and nothing the app does not actually use.
-         The listener is auto-rebound by the system after reboot, so no RECEIVE_BOOT_COMPLETED;
-         the app posts no notifications, so no POST_NOTIFICATIONS. -->
+         The app posts no notifications, so no POST_NOTIFICATIONS.
+         RECEIVE_BOOT_COMPLETED is what makes capture survive: the system does NOT reliably
+         re-bind the listener after a reboot or an in-place app update, and it also lets the
+         watchdog job be persisted (JobInfo.setPersisted requires this permission). -->
     <uses-permission android:name="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
         tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
 
@@ -43,6 +46,24 @@
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
         </service>
+
+        <!-- Re-binds the listener after a reboot and after this app was updated in place. -->
+        <receiver
+            android:name=".service.BootReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Periodic check that the listener is still bound (persisted: survives reboots). -->
+        <service
+            android:name=".service.WatchdogJobService"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
 
         <provider
             android:name="androidx.core.content.FileProvider"

@@ -9,6 +9,7 @@ import io.celox.notifvault.data.ConversationSummary
 import io.celox.notifvault.data.DatabaseProvider
 import io.celox.notifvault.data.MessageDao
 import io.celox.notifvault.data.SettingsStore
+import io.celox.notifvault.service.ListenerWatchdog
 import io.celox.notifvault.util.VaultFormat
 import io.celox.notifvault.util.VaultTransfer
 import io.celox.notifvault.util.escapeLike
@@ -103,6 +104,12 @@ class VaultViewModel(app: Application) : AndroidViewModel(app) {
     fun setMonitored(packages: Set<String>) = viewModelScope.launch { settings.setMonitored(packages) }
     fun setBiometric(value: Boolean) = viewModelScope.launch { settings.setBiometricLock(value) }
     fun setRetentionDays(days: Int) = viewModelScope.launch { settings.setRetentionDays(days) }
+
+    /** Also starts/stops the watchdog job right away — the toggle has to take effect now. */
+    fun setAutoStart(value: Boolean) = viewModelScope.launch {
+        settings.setAutoStartOnBoot(value)
+        ListenerWatchdog.sync(getApplication())
+    }
 
     /**
      * Restores a decoded backup. Insert-IGNORE + content-hash ids make this an idempotent

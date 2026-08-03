@@ -43,6 +43,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -53,6 +54,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.celox.notifvault.data.CapturedMessage
 import io.celox.notifvault.data.ConversationSummary
+import io.celox.notifvault.service.ListenerWatchdog
 import io.celox.notifvault.service.NotificationCaptureService
 import io.celox.notifvault.ui.theme.Motion
 import io.celox.notifvault.util.findMatches
@@ -67,6 +69,7 @@ fun HomeScreen(
     onOpenSettings: () -> Unit,
     onGrantAccess: () -> Unit
 ) {
+    val context = LocalContext.current
     val conversations by vm.conversations.collectAsStateWithLifecycle()
     val results by vm.searchResults.collectAsStateWithLifecycle()
     val total by vm.totalCount.collectAsStateWithLifecycle()
@@ -101,10 +104,14 @@ fun HomeScreen(
                     onAction = onGrantAccess
                 )
             } else if (!listenerConnected) {
+                // Not a passing hiccup: after an app update or an OEM process kill the binding
+                // stays gone until something asks for it back, so offer that here.
                 CaptureBanner(
-                    text = "Erfassung derzeit inaktiv — das System hat den Dienst getrennt. " +
-                        "Verbindet sich meist von selbst neu.",
-                    error = false
+                    text = "Erfassung inaktiv — Android hat den Dienst getrennt " +
+                        "(typisch nach einem Update oder Neustart). Es wird nichts gesichert.",
+                    error = true,
+                    actionLabel = "Neu verbinden",
+                    onAction = { ListenerWatchdog.requestRebind(context) }
                 )
             }
 

@@ -20,7 +20,7 @@ Single Gradle module (`:app`), Kotlin + Jetpack Compose, minSdk 26 / target+comp
 ./gradlew assembleDebug        # APK → app/build/outputs/apk/debug/
 ./gradlew installDebug         # build + install to connected device/emulator
 ./gradlew lint                 # Android lint
-./gradlew testDebugUnitTest    # 161 JVM unit tests (MessageId, Grouping, Deletion, Noise, ExportUtils, ExportNaming, VaultJson, VaultCsv, VaultFormat, VaultTransfer, VaultCodec, VaultBackup, BackupMerge, RetentionPolicy, Format, SearchUtils)
+./gradlew testDebugUnitTest    # 170 JVM unit tests (MessageId, Grouping, Deletion, Noise, WatchdogPolicy, ExportUtils, ExportNaming, VaultJson, VaultCsv, VaultFormat, VaultTransfer, VaultCodec, VaultBackup, BackupMerge, RetentionPolicy, Format, SearchUtils)
 ./gradlew testDebugUnitTest --tests "io.celox.notifvault.notif.MessageIdTest"   # single test class
 ```
 
@@ -56,7 +56,30 @@ The whole app is one pipeline: a system notification → a stored, encrypted row
    flags *all* stored versions (intended). **Health:** the companion `listenerConnected` StateFlow feeds
    the Home banner and the Settings status section (UI runs in the same process), and a throttled
    heartbeat (≤ 1 write/min) persists `SettingsStore.lastCaptureAt`. `onCreate` also kicks
-   `RetentionPruner.pruneIfDue` (the service runs even when the UI never opens).
+   `RetentionPruner.pruneIfDue` and `ListenerWatchdog.sync` (the service runs even when the UI
+   never opens).
+
+   **Staying bound (v1.8.0) — `service/ListenerWatchdog.kt`, `BootReceiver.kt`, `WatchdogPolicy.kt`.**
+   The listener is bound by the *system*, and Android drops that binding in three ways the service
+   cannot observe from the inside, because in all three it is already gone: after an **in-place app
+   update** (the system unbinds the old code and sometimes fails to bind the new one — the most
+   likely cause of the silent stop after installing 1.7.2), after an **OEM process kill** (Samsung
+   "Tiefschlaf" does not disconnect politely, so `onListenerDisconnected` — and the `requestRebind`
+   inside it — never runs), and after a **reboot**. The manifest used to claim the system rebinds
+   automatically; it does not reliably. Repair therefore comes from outside: a `BootReceiver` on
+   `BOOT_COMPLETED`/`QUICKBOOT_POWERON`/**`MY_PACKAGE_REPLACED`** and a **persisted periodic
+   `WatchdogJobService`** (15 min = JobScheduler's floor; `setPersisted` needs the new
+   `RECEIVE_BOOT_COMPLETED` permission and makes the job outlive a reboot on its own, so the two
+   paths deliberately overlap). Both are gated on `SettingsStore.autoStartOnBoot` (**default on**).
+   `ListenerWatchdog.schedule` leaves an already-pending job alone — re-scheduling restarts the
+   period, so scheduling on every app start would mean a frequently-opened app never reaches its
+   own watchdog. The job writes `lastWatchdogAt`, which is the app's only evidence that background
+   execution still happens at all: when it stops advancing, `WatchdogPolicy.isWatchdogOverdue`
+   turns that into the one diagnosis a rebind cannot fix (the battery manager is freezing the app →
+   Settings offers the exemption). Decisions live in the framework-free `WatchdogPolicy`
+   (`shouldRequestRebind` — never call `requestRebind` without notification access, it fails, and
+   never interrupt a connected listener; `shouldSchedule`; `isWatchdogOverdue`, which treats a
+   backwards clock as "just ran" like `RetentionPolicy` does).
 
 2. **`notif/MessageExtractor`** — `extract()` returns an **`ExtractResult(messages, deletions)`**. Skips
    `FLAG_GROUP_SUMMARY` and **non-message notifications** (see noise filter below). **Prefers
@@ -150,7 +173,8 @@ The whole app is one pipeline: a system notification → a stored, encrypted row
    the caller wraps this in `runCatching`, so claiming up front would turn one transient failure into
    "never again". `SettingsStore` (DataStore) holds the monitored-package set, capture-all flag,
    biometric-lock flag,
-   `lastCaptureAt` heartbeat, `retentionDays` (0 = forever), `lastPruneAt` and `noiseCleanupVersion`;
+   `lastCaptureAt` heartbeat, `retentionDays` (0 = forever), `lastPruneAt`, `noiseCleanupVersion`,
+   `autoStartOnBoot` (default **true**) and `lastWatchdogAt`;
    `KNOWN_MESSENGERS` is the Settings toggle list, `DEFAULT_PACKAGES` the WhatsApp default.
 
 5. **`ui/`** — Compose. `MainActivity` is a **`FragmentActivity`** (required by `BiometricPrompt`); it gates
@@ -165,8 +189,13 @@ The whole app is one pipeline: a system notification → a stored, encrypted row
    `capturedAt`; ⋮ menu exports just this chat). `HomeScreen` shows colored `Avatar`s + search with match
    highlighting, a **capture-health banner** (access revoked → error + button; access ok but listener
    unbound → quiet hint), **per-app `FilterChip`s** (only when ≥ 2 apps have chats) and 🗑/✏️ badges.
+   The "listener unbound" banner is an **error with a "Neu verbinden" action** (`ListenerWatchdog.
+   requestRebind`), not a quiet hint — the old wording, "verbindet sich meist von selbst neu", was
+   exactly the assumption that let capture die silently.
    `FlaggedScreen` ("Aufgedeckt") lists all deleted/edited originals globally. `SettingsScreen` adds a
-   Status section (access / listener / last capture), the retention picker, and **encrypted backup/restore**
+   Status section (access / listener / last capture / manual reconnect), an **"Autostart &
+   Selbstheilung"** section (the `autoStartOnBoot` toggle, last watchdog run, the overdue warning and
+   the battery-exemption button), the retention picker, and **encrypted backup/restore**
    via SAF (`CreateDocument`/`OpenDocument` + passphrase dialogs; results in a dialog). Destructive
    actions (delete chat / clear all / retention) require confirmation. `VaultViewModel` (`AndroidViewModel`)
    owns the DAO Flows as `StateFlow`s, the **debounced** search query, and `importBackup` (insert-IGNORE

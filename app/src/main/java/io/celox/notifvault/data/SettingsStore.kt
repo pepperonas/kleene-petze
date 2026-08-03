@@ -21,6 +21,8 @@ class SettingsStore(private val context: Context) {
     private val retentionKey = intPreferencesKey("retention_days")
     private val lastPruneKey = longPreferencesKey("last_prune_at")
     private val noiseCleanupKey = intPreferencesKey("noise_cleanup_version")
+    private val autoStartKey = booleanPreferencesKey("auto_start_on_boot")
+    private val lastWatchdogKey = longPreferencesKey("last_watchdog_at")
 
     val monitoredPackages: Flow<Set<String>> = context.dataStore.data
         .map { it[pkgKey] ?: DEFAULT_PACKAGES }
@@ -50,6 +52,18 @@ class SettingsStore(private val context: Context) {
     val noiseCleanupVersion: Flow<Int> = context.dataStore.data
         .map { it[noiseCleanupKey] ?: 0 }
 
+    /**
+     * Re-bind the capture service after a reboot, after an app update, and every 15 minutes.
+     * **On by default**: capture that has silently stopped is this app's worst failure mode —
+     * nothing is missing until the day something is, and by then it is gone.
+     */
+    val autoStartOnBoot: Flow<Boolean> = context.dataStore.data
+        .map { it[autoStartKey] ?: true }
+
+    /** When the watchdog job last ran (0 = never) — the app's proof that it still runs at all. */
+    val lastWatchdogAt: Flow<Long> = context.dataStore.data
+        .map { it[lastWatchdogKey] ?: 0L }
+
     suspend fun setMonitored(packages: Set<String>) {
         context.dataStore.edit { it[pkgKey] = packages }
     }
@@ -76,6 +90,14 @@ class SettingsStore(private val context: Context) {
 
     suspend fun setNoiseCleanupVersion(value: Int) {
         context.dataStore.edit { it[noiseCleanupKey] = value }
+    }
+
+    suspend fun setAutoStartOnBoot(value: Boolean) {
+        context.dataStore.edit { it[autoStartKey] = value }
+    }
+
+    suspend fun setLastWatchdogAt(value: Long) {
+        context.dataStore.edit { it[lastWatchdogKey] = value }
     }
 
     companion object {

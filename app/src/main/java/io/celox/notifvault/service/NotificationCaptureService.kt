@@ -1,6 +1,5 @@
 package io.celox.notifvault.service
 
-import android.content.ComponentName
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import io.celox.notifvault.data.DatabaseProvider
@@ -62,6 +61,9 @@ class NotificationCaptureService : NotificationListenerService() {
         scope.launch { for (sbn in queue) runCatching { process(sbn) } }
         // Retention runs from here too: the service starts even when the app UI never opens.
         scope.launch { runCatching { RetentionPruner.pruneIfDue(applicationContext) } }
+        // Likewise the watchdog, so it exists on every device the listener has ever run on —
+        // waiting for the user to open the UI would leave exactly the silent installs unguarded.
+        scope.launch { runCatching { ListenerWatchdog.sync(applicationContext) } }
     }
 
     override fun onDestroy() {
@@ -124,7 +126,9 @@ class NotificationCaptureService : NotificationListenerService() {
     override fun onListenerDisconnected() {
         super.onListenerDisconnected()
         _listenerConnected.value = false
-        // Samsung One UI aggressively kills listeners; ask the system to rebind us.
-        requestRebind(ComponentName(this, NotificationCaptureService::class.java))
+        // Samsung One UI aggressively kills listeners; ask the system to rebind us. This only
+        // covers a *polite* disconnect — when the process is killed outright this never runs,
+        // which is what BootReceiver and WatchdogJobService are for.
+        ListenerWatchdog.requestRebind(applicationContext)
     }
 }

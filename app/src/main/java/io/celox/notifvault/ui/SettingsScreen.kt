@@ -57,6 +57,8 @@ import io.celox.notifvault.data.CapturedMessage
 import io.celox.notifvault.data.RetentionPolicy
 import io.celox.notifvault.data.SettingsStore
 import io.celox.notifvault.service.NotificationCaptureService
+import io.celox.notifvault.service.ListenerWatchdog
+import io.celox.notifvault.service.WatchdogPolicy
 import io.celox.notifvault.ui.theme.Motion
 import io.celox.notifvault.util.ExportNaming
 import io.celox.notifvault.util.PermissionUtils
@@ -82,16 +84,22 @@ fun SettingsScreen(vm: VaultViewModel, onBack: () -> Unit) {
     val lastCapture by vm.settings.lastCaptureAt.collectAsStateWithLifecycle(initialValue = 0L)
     val retention by vm.settings.retentionDays.collectAsStateWithLifecycle(initialValue = 0)
     val listenerConnected by NotificationCaptureService.listenerConnected.collectAsStateWithLifecycle()
+    val autoStart by vm.settings.autoStartOnBoot.collectAsStateWithLifecycle(initialValue = true)
+    val lastWatchdog by vm.settings.lastWatchdogAt.collectAsStateWithLifecycle(initialValue = 0L)
     var confirmClear by remember { mutableStateOf(false) }
     var showRetentionDialog by remember { mutableStateOf(false) }
 
-    // Access is granted in system Settings — re-read on ON_RESUME (same pattern as AppNav).
+    // Both are granted in system Settings — re-read on ON_RESUME (same pattern as AppNav).
     var hasAccess by remember { mutableStateOf(PermissionUtils.hasNotificationAccess(context)) }
+    var batteryExempt by remember {
+        mutableStateOf(PermissionUtils.isIgnoringBatteryOptimizations(context))
+    }
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 hasAccess = PermissionUtils.hasNotificationAccess(context)
+                batteryExempt = PermissionUtils.isIgnoringBatteryOptimizations(context)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -223,6 +231,51 @@ fun SettingsScreen(vm: VaultViewModel, onBack: () -> Unit) {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            if (hasAccess && !listenerConnected) {
+                TextButton(onClick = {
+                    resultMessage = if (ListenerWatchdog.requestRebind(context)) {
+                        "Neuverbindung angefordert. Der Status oben springt auf „verbunden“, " +
+                            "sobald das System den Dienst gebunden hat — das dauert einen Moment."
+                    } else {
+                        "Ohne Benachrichtigungszugriff kann der Dienst nicht verbunden werden."
+                    }
+                }) { Text("Erfassung neu verbinden") }
+            }
+
+            HorizontalDivider(Modifier.padding(vertical = 8.dp))
+            Section("Autostart & Selbstheilung")
+            ToggleRow("Nach Neustart automatisch starten", autoStart) { vm.setAutoStart(it) }
+            Text(
+                "Verbindet die Erfassung nach einem Neustart, nach einem App-Update und alle " +
+                    "15 Minuten neu. Android trennt den Dienst sonst still — und meldet das nicht.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            if (autoStart) {
+                val overdue = WatchdogPolicy.isWatchdogOverdue(
+                    lastWatchdog, System.currentTimeMillis()
+                )
+                Text(
+                    "Letzte Prüfung: ${formatRelativeSince(lastWatchdog)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                // The one symptom no rebind can cure: the app itself is being frozen.
+                if (overdue) {
+                    Text(
+                        "Die Prüfung läuft seit Stunden nicht mehr — das Energiesparen hält die " +
+                            "App an. Nimm sie davon aus, sonst kann auch die Erfassung nicht " +
+                            "zurückkommen.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+                if (!batteryExempt) {
+                    TextButton(onClick = {
+                        PermissionUtils.requestIgnoreBatteryOptimizations(context)
+                    }) { Text("Von Akku-Optimierung ausnehmen") }
+                }
+            }
 
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
             Section("Überwachte Apps")
