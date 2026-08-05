@@ -2,10 +2,12 @@ package io.celox.notifvault.service
 
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import io.celox.notifvault.data.CapturedAttachment
 import io.celox.notifvault.data.DatabaseProvider
 import io.celox.notifvault.data.RetentionPruner
 import io.celox.notifvault.data.SettingsStore
 import io.celox.notifvault.notif.MessageExtractor
+import io.celox.notifvault.notif.NotificationImages
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -42,6 +44,7 @@ class NotificationCaptureService : NotificationListenerService() {
     // the DataStore flow from scratch for every posted notification.
     private lateinit var captureAll: StateFlow<Boolean?>
     private lateinit var monitored: StateFlow<Set<String>?>
+    private lateinit var captureImages: StateFlow<Boolean?>
 
     // Notifications are processed strictly in post order through this queue: a deletion
     // placeholder must never be applied before the insert of the original it flags, and
@@ -56,6 +59,8 @@ class NotificationCaptureService : NotificationListenerService() {
         captureAll = settings.captureAll.map { it as Boolean? }
             .stateIn(scope, SharingStarted.Eagerly, null)
         monitored = settings.monitoredPackages.map { it as Set<String>? }
+            .stateIn(scope, SharingStarted.Eagerly, null)
+        captureImages = settings.captureImages.map { it as Boolean? }
             .stateIn(scope, SharingStarted.Eagerly, null)
         // runCatching: one bad notification must not kill the consumer loop for good.
         scope.launch { for (sbn in queue) runCatching { process(sbn) } }
@@ -99,6 +104,26 @@ class NotificationCaptureService : NotificationListenerService() {
                     dao.markEditSuperseded(m.conversationKey, m.packageName, m.sender, m.messageTime, m.id)
                 }
             }
+        }
+        // Pictures, decoded right here: a notification listener may read the image Uri only
+        // while the notification is live, so this cannot be deferred to a worker.
+        if (result.images.isNotEmpty() && captureImages.filterNotNull().first()) {
+            val stored = result.images.mapNotNull { pending ->
+                NotificationImages.encode(applicationContext, pending.source)?.let { image ->
+                    CapturedAttachment(
+                        messageId = pending.message.id,
+                        packageName = pending.message.packageName,
+                        conversationKey = pending.message.conversationKey,
+                        mimeType = image.mimeType,
+                        width = image.width,
+                        height = image.height,
+                        bytes = image.bytes,
+                        capturedAt = pending.message.capturedAt
+                    )
+                }
+            }
+            // The message rows above are already inserted, so the foreign key is satisfied.
+            if (stored.isNotEmpty()) dao.insertAttachments(stored)
         }
         // A deleted-while-unread message arrived as a placeholder: flag the stored original.
         // (After an edit, the placeholder keeps the original timestamp and thus flags every

@@ -86,7 +86,11 @@ fun SettingsScreen(vm: VaultViewModel, onBack: () -> Unit) {
     val listenerConnected by NotificationCaptureService.listenerConnected.collectAsStateWithLifecycle()
     val autoStart by vm.settings.autoStartOnBoot.collectAsStateWithLifecycle(initialValue = true)
     val lastWatchdog by vm.settings.lastWatchdogAt.collectAsStateWithLifecycle(initialValue = 0L)
+    val captureImages by vm.settings.captureImages.collectAsStateWithLifecycle(initialValue = true)
+    val imageCount by vm.attachmentCount.collectAsStateWithLifecycle()
+    val imageBytes by vm.attachmentBytesTotal.collectAsStateWithLifecycle()
     var confirmClear by remember { mutableStateOf(false) }
+    var confirmDropImages by remember { mutableStateOf(false) }
     var showRetentionDialog by remember { mutableStateOf(false) }
 
     // Both are granted in system Settings — re-read on ON_RESUME (same pattern as AppNav).
@@ -298,6 +302,30 @@ fun SettingsScreen(vm: VaultViewModel, onBack: () -> Unit) {
             }
 
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
+            Section("Bilder")
+            ToggleRow("Bilder aus Benachrichtigungen sichern", captureImages) {
+                vm.setCaptureImages(it)
+            }
+            Text(
+                "Kommentare unter Bildern werden immer gesichert — sie sind der Nachrichtentext. " +
+                    "Zusätzlich lässt sich die Bildvorschau speichern, die die Benachrichtigung " +
+                    "mitbringt. Das ist nicht das Original aus WhatsApp, sondern die kleinere " +
+                    "Vorschau; an die Originaldatei kommt keine App heran.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                if (imageCount == 0) "Keine Bilder gespeichert."
+                else "$imageCount Bild${if (imageCount == 1) "" else "er"} · ${formatBytes(imageBytes)} " +
+                    "(verschlüsselt in der Datenbank)",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            if (imageCount > 0) {
+                TextButton(onClick = { confirmDropImages = true }) { Text("Alle Bilder löschen") }
+            }
+
+            HorizontalDivider(Modifier.padding(vertical = 8.dp))
             Section("Sicherheit")
             ToggleRow("App mit Biometrie sperren", biometric) { vm.setBiometric(it) }
             Text("Daten liegen verschlüsselt (SQLCipher / AES-256) lokal auf dem Gerät.",
@@ -309,7 +337,8 @@ fun SettingsScreen(vm: VaultViewModel, onBack: () -> Unit) {
             Text(
                 "Das ganze Archiv als Datei sichern und wieder einlesen. Verschlüsselung ist " +
                     "optional — verschlüsselt (.kpvault) ist die Datei ohne Passphrase wertlos, " +
-                    "JSON und CSV sind lesbar und lassen sich genauso zurückspielen.",
+                    "JSON und CSV sind lesbar und lassen sich genauso zurückspielen. " +
+                    "Gespeicherte Bilder bleiben auf dem Gerät und sind nicht Teil des Exports.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -382,6 +411,27 @@ fun SettingsScreen(vm: VaultViewModel, onBack: () -> Unit) {
             },
             dismissButton = {
                 TextButton(onClick = { confirmClear = false }) { Text("Abbrechen") }
+            }
+        )
+    }
+
+    if (confirmDropImages) {
+        AlertDialog(
+            onDismissRequest = { confirmDropImages = false },
+            title = { Text("Alle Bilder löschen?") },
+            text = {
+                Text("$imageCount gespeicherte Bild${if (imageCount == 1) "" else "er"} " +
+                    "(${formatBytes(imageBytes)}) werden entfernt. Die Nachrichten und " +
+                    "Kommentare bleiben erhalten.")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { confirmDropImages = false; vm.deleteAllImages() },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                ) { Text("Bilder löschen") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDropImages = false }) { Text("Abbrechen") }
             }
         )
     }
@@ -504,6 +554,13 @@ private fun StatusRow(label: String, ok: Boolean, detail: String, action: (() ->
 }
 
 private fun formatLastCapture(millis: Long): String = formatRelativeSince(millis)
+
+/** Storage sizes in the units people read them in — MB once it is worth mentioning. */
+private fun formatBytes(bytes: Long): String = when {
+    bytes >= 1024L * 1024L -> String.format(Locale.GERMANY, "%.1f MB", bytes / (1024.0 * 1024.0))
+    bytes >= 1024L -> "${bytes / 1024} KB"
+    else -> "$bytes B"
+}
 
 @Composable
 private fun RetentionRow(days: Int, onClick: () -> Unit) {

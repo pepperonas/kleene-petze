@@ -1,5 +1,6 @@
 package io.celox.notifvault.util
 
+import io.celox.notifvault.data.CapturedAttachment
 import io.celox.notifvault.data.CapturedMessage
 import io.celox.notifvault.data.ConversationSummary
 import io.celox.notifvault.data.MessageDao
@@ -53,6 +54,19 @@ class VaultTransferTest {
         override suspend fun deleteByIds(ids: List<String>) = 0
         override suspend fun applyDeletedFlags(ids: List<String>) {}
         override suspend fun applyEditedFlags(ids: List<String>) {}
+
+        // Attachments play no part in export/import — pictures stay on the device (see
+        // VaultTransfer's docs), so these are inert here.
+        override suspend fun insertAttachments(items: List<CapturedAttachment>) {}
+        override fun attachmentIdsFor(conversationKey: String, pkg: String): Flow<List<String>> =
+            flowOf(emptyList())
+        override suspend fun attachment(messageId: String): CapturedAttachment? = null
+        override fun attachmentCount(): Flow<Int> = flowOf(0)
+        override fun attachmentBytes(): Flow<Long> = flowOf(0L)
+        override suspend fun clearAttachments() {}
+        override suspend fun deleteAttachmentsFor(conversationKey: String, pkg: String) {}
+        override suspend fun pruneAttachmentsOlderThan(cutoff: Long) {}
+        override suspend fun deleteAttachmentsByIds(ids: List<String>) {}
     }
 
     private fun msg(i: Int) = CapturedMessage(

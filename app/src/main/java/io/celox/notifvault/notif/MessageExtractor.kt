@@ -9,9 +9,26 @@ import io.celox.notifvault.data.CapturedMessage
 /** Identifies a previously-stored original message that has since been deleted. */
 data class DeletionMark(val conversationKey: String, val sender: String, val messageTime: Long)
 
-/** Normal messages to store + deletions to apply to already-stored originals. */
-data class ExtractResult(val messages: List<CapturedMessage>, val deletions: List<DeletionMark>) {
-    companion object { val EMPTY = ExtractResult(emptyList(), emptyList()) }
+/**
+ * Stand-in for a picture that arrived without a caption. A message needs *some* text to have an
+ * identity — the content hash is built from it — and an empty one would be dropped.
+ */
+const val IMAGE_PLACEHOLDER = "📷 Bild"
+
+/**
+ * An image this notification carries, together with the message it belongs to. Decoding needs a
+ * Context, so the extractor only points at the source and the capture service resolves it —
+ * immediately, because the Uri grant dies with the notification.
+ */
+data class PendingImage(val message: CapturedMessage, val source: ImageSource)
+
+/** Normal messages to store + deletions to apply to already-stored originals + images. */
+data class ExtractResult(
+    val messages: List<CapturedMessage>,
+    val deletions: List<DeletionMark>,
+    val images: List<PendingImage> = emptyList()
+) {
+    companion object { val EMPTY = ExtractResult(emptyList(), emptyList(), emptyList()) }
 }
 
 /**
@@ -77,6 +94,7 @@ class MessageExtractor(private val pm: PackageManager) {
 
         val messages = mutableListOf<CapturedMessage>()
         val deletions = mutableListOf<DeletionMark>()
+        val images = mutableListOf<PendingImage>()
 
         val style = runCatching {
             NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(n)
@@ -86,7 +104,15 @@ class MessageExtractor(private val pm: PackageManager) {
             val convTitle = style.conversationTitle?.toString()
             val isGroup = style.isGroupConversation
             for (m in style.messages) {
-                val text = m.text?.toString()?.trim().orEmpty()
+                val rawText = m.text?.toString()?.trim().orEmpty()
+                // A picture message: WhatsApp attaches the shade preview to the message itself.
+                val imageUri = runCatching { m.dataUri }.getOrNull()
+                    ?.takeIf { ImagePolicy.isSupported(runCatching { m.dataMimeType }.getOrNull()) }
+                // An image with a caption carries the caption as its text — that is the part
+                // that must survive, and it is stored like any other message. Without a caption
+                // the text is empty, and dropping it here (as before) would throw the picture
+                // away with it, so it gets a placeholder to hang on.
+                val text = if (rawText.isEmpty() && imageUri != null) IMAGE_PLACEHOLDER else rawText
                 if (text.isEmpty() || isNoiseText(text)) continue
                 val sender = senderNameOf(m.person?.name?.toString(), style.user.name?.toString())
                 // Which chat is this? Groups must never be keyed/titled by the sender — that
@@ -106,9 +132,11 @@ class MessageExtractor(private val pm: PackageManager) {
                 if (isDeletionPlaceholder(text)) {
                     deletions += DeletionMark(chat.key, sender, time)
                 } else {
-                    messages += message(
+                    val stored = message(
                         pkg, appLabel, chat.key, chat.title, sender, isGroup, text, time, now
                     )
+                    messages += stored
+                    if (imageUri != null) images += PendingImage(stored, ImageSource.FromUri(imageUri))
                 }
             }
         } else {
@@ -134,7 +162,14 @@ class MessageExtractor(private val pm: PackageManager) {
             }
         }
 
-        return ExtractResult(messages, deletions)
+        // BigPictureStyle keeps its image on the notification rather than on a message, so it can
+        // only belong to the newest one. Used as a fallback: when the MessagingStyle path already
+        // found per-message images, those are the more precise answer.
+        if (images.isEmpty() && messages.isNotEmpty()) {
+            NotificationImages.bigPicture(n.extras)?.let { images += PendingImage(messages.last(), it) }
+        }
+
+        return ExtractResult(messages, deletions, images)
     }
 
     private fun message(

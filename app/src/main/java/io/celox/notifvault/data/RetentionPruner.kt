@@ -18,7 +18,11 @@ object RetentionPruner {
         if (!RetentionPolicy.isDue(days, settings.lastPruneAt.first(), now)) return
         // Claim the slot before deleting so a racing second caller backs off immediately.
         settings.setLastPruneAt(now)
-        DatabaseProvider.get(context.applicationContext).messageDao()
-            .pruneOlderThan(RetentionPolicy.cutoff(days, now))
+        val dao = DatabaseProvider.get(context.applicationContext).messageDao()
+        val cutoff = RetentionPolicy.cutoff(days, now)
+        // Pictures first: they are selected *via* the messages they belong to, so removing the
+        // messages first would leave the blobs behind with nothing left to find them by.
+        dao.pruneAttachmentsOlderThan(cutoff)
+        dao.pruneOlderThan(cutoff)
     }
 }

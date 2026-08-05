@@ -144,4 +144,41 @@ interface MessageDao {
 
     @Query("UPDATE messages SET editSuperseded = 1 WHERE id IN (:ids)")
     suspend fun applyEditedFlags(ids: List<String>)
+
+    // ---- Attachments (images pulled out of notifications) ----------------------------------
+    //
+    // Deletions are always paired explicitly with the matching message delete rather than left
+    // to the foreign key: ON DELETE CASCADE only fires while SQLite has `PRAGMA foreign_keys`
+    // enabled, and orphaned blobs would be invisible — they show up as storage that never
+    // shrinks. Attachments go first, messages second.
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertAttachments(items: List<CapturedAttachment>)
+
+    /** Ids only: which bubbles have a picture. Never pulls blobs into a list query. */
+    @Query(
+        "SELECT messageId FROM attachments WHERE conversationKey = :conversationKey AND packageName = :pkg"
+    )
+    fun attachmentIdsFor(conversationKey: String, pkg: String): Flow<List<String>>
+
+    @Query("SELECT * FROM attachments WHERE messageId = :messageId")
+    suspend fun attachment(messageId: String): CapturedAttachment?
+
+    @Query("SELECT COUNT(*) FROM attachments")
+    fun attachmentCount(): Flow<Int>
+
+    @Query("SELECT COALESCE(SUM(LENGTH(bytes)), 0) FROM attachments")
+    fun attachmentBytes(): Flow<Long>
+
+    @Query("DELETE FROM attachments")
+    suspend fun clearAttachments()
+
+    @Query("DELETE FROM attachments WHERE conversationKey = :conversationKey AND packageName = :pkg")
+    suspend fun deleteAttachmentsFor(conversationKey: String, pkg: String)
+
+    @Query("DELETE FROM attachments WHERE messageId IN (SELECT id FROM messages WHERE messageTime < :cutoff)")
+    suspend fun pruneAttachmentsOlderThan(cutoff: Long)
+
+    @Query("DELETE FROM attachments WHERE messageId IN (:ids)")
+    suspend fun deleteAttachmentsByIds(ids: List<String>)
 }

@@ -8,9 +8,14 @@ import androidx.room.RoomDatabase
 // clean slate (destructive fallback from v1 only) and let every chat re-populate with a
 // proper stable key. v3 reworks the indexes (composite conversationKey+packageName+messageTime)
 // via a real, data-preserving MIGRATION_2_3 in DatabaseProvider. v4 adds the editSuperseded
-// flag (MIGRATION_3_4). Schema JSON is exported to app/schemas as the reference for
+// flag (MIGRATION_3_4). v5 adds the attachments table for images pulled out of notifications
+// (MIGRATION_4_5). Schema JSON is exported to app/schemas as the reference for
 // hand-written migrations.
-@Database(entities = [CapturedMessage::class], version = 4, exportSchema = true)
+@Database(
+    entities = [CapturedMessage::class, CapturedAttachment::class],
+    version = 5,
+    exportSchema = true
+)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun messageDao(): MessageDao
 }

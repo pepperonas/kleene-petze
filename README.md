@@ -107,6 +107,37 @@ Wortliste, sondern dass eine Benachrichtigung mit **Fortschrittsbalken** (`EXTRA
 eine Nachricht ist – das greift in jeder Sprache. Dasselbe Gerät zeigte außerdem, dass WhatsApp
 einen laufenden Anruf „Aktiver Sprachanruf" nennt, was keine bisherige Phrase abdeckte.
 
+## Bilder mit Kommentar (v1.9.0)
+
+**Der Kommentar unter einem Bild war nie das Problem** – er *ist* der Nachrichtentext und wurde
+immer gesichert. Verloren gingen zwei andere Dinge:
+
+* **Bilder ohne Kommentar** verschwanden komplett. Eine Nachricht braucht Text, um überhaupt eine
+  Identität zu haben (die ID ist ein Hash über den Inhalt), und der Extractor verwarf jede
+  MessagingStyle-Nachricht mit leerem Text. Sie bekommt jetzt einen Platzhalter und bleibt erhalten.
+* **Das Bild selbst** wurde nie gespeichert.
+
+Was jetzt gesichert wird, ist die **Vorschau, die die Benachrichtigung mitbringt** – nicht die
+Originaldatei. Der Unterschied ist wichtig und keine Bequemlichkeit: an WhatsApps Medienordner kommt
+seit Scoped Storage keine fremde App mehr heran. Die Vorschau dagegen liegt in der Benachrichtigung,
+und ein Benachrichtigungs-Listener darf sie lesen – laut Android-Doku wird ihm für **jede** URI einer
+Benachrichtigung Lesezugriff erteilt, allerdings **nur solange sie aktiv ist**. Deshalb wird das Bild
+sofort beim Eintreffen dekodiert und nie eine URI für später gemerkt.
+
+| Quelle | wann |
+|---|---|
+| `MessagingStyle.Message.getDataUri()` | der übliche Weg – das Bild hängt an der einzelnen Nachricht |
+| `BigPictureStyle` (`EXTRA_PICTURE`) | ältere Aufbauten, das Bild hängt an der Benachrichtigung |
+
+Gespeichert wird als JPEG (max. 1280 px, max. 512 KB) **als BLOB in der verschlüsselten Datenbank**,
+nicht als Datei – sonst wäre ausgerechnet das Bild der unverschlüsselte Teil des Archivs. In einer
+eigenen Tabelle, damit die Übersichts- und Chat-Abfragen nicht bei jedem Aufruf Bilddaten
+mitschleppen. Abschaltbar unter *Einstellungen → Bilder*, samt Speicherverbrauch und einem Knopf,
+der nur die Bilder wieder entfernt.
+
+**Sprachnachrichten und Videos bleiben außen vor** – dafür gibt es keine Vorschau in der
+Benachrichtigung. Und **Bilder sind nicht Teil des Exports**: sie bleiben auf dem Gerät.
+
 ## Autostart & Selbstheilung (v1.8.0)
 
 Der größte denkbare Fehler dieser App ist nicht ein Absturz, sondern **stilles Nichtstun**: Der
@@ -179,7 +210,8 @@ Das Archiv muss also nie als Ganzes in den Arbeitsspeicher passen.
 | Optionale Aufbewahrungsdauer (30–365 Tage, Standard: unbegrenzt) | ✅ |
 | **Gelöschte Nachrichten markieren** (Original hervorgehoben + 🗑-Badge, gesammelt in der „Aufgedeckt"-Ansicht) | ⚠️ nur wenn die Nachricht gelöscht wird, *während sie noch ungelesen im Benachrichtigungs-Shade liegt* (dann ersetzt WhatsApp den Text durch „…gelöscht", den wir der gespeicherten Originalnachricht zuordnen); Platzhalter in 10 Sprachen erkannt |
 | **Bearbeitete Nachrichten aufdecken** (frühere Version bleibt sichtbar, ✏️-Markierung) | ⚠️ gleiche Bedingung: die Bearbeitung muss eine Benachrichtigung auslösen, solange der Chat ungelesen ist |
-| **Medien** (Fotos, Sprach-/Videonachrichten) | ❌ technisch nicht möglich – stecken nicht in der Notification, Scoped Storage sperrt WhatsApps Medienordner |
+| **Bilder mit Kommentar** – Kommentar immer, Bildvorschau optional | ✅ der Kommentar ist der Nachrichtentext; das Bild wird als **Vorschau aus der Benachrichtigung** gesichert (JPEG, verschlüsselt in der DB) |
+| **Original-Mediendateien** (volle Auflösung, Sprach-/Videonachrichten) | ❌ technisch nicht möglich – die Originaldatei steckt nicht in der Notification, Scoped Storage sperrt WhatsApps Medienordner |
 | Bereits gelesene Nachrichten, die später gelöscht werden | ❌ erzeugen keine Benachrichtigung → Löschung nicht erkennbar |
 | Stummgeschaltete Chats | ❌ erzeugen oft keine Benachrichtigung |
 | Nachrichten empfangen, während der Chat offen ist | ❌ keine Benachrichtigung |
@@ -201,7 +233,7 @@ Reine JVM-Unit-Tests (kein Emulator nötig):
 ./gradlew testDebugUnitTest
 ```
 
-Aktuell **170 Tests**, alle ohne Android-Framework (die kritische Logik liegt bewusst in
+Aktuell **182 Tests**, alle ohne Android-Framework (die kritische Logik liegt bewusst in
 frameworkfreien Modulen). Abgedeckt:
 
 - **Dedup-Schlüssel** – `messageContentId` mit fixem SHA-256-Anker (`MessageId`)
@@ -211,6 +243,8 @@ frameworkfreien Modulen). Abgedeckt:
 - **Rauschfilter** – Dienst-/Anruf-Benachrichtigungen erkannt, echte Nachrichten nie verworfen (`Noise`)
 - **Wächter-Regeln** – wann neu gebunden wird, wann der Wächter läuft, und ab wann sein Ausbleiben
   ein Symptom ist (inkl. zurückgestellter Uhr) (`WatchdogPolicy`)
+- **Bild-Regeln** – Skalierung/Subsampling ohne Qualitätsverlust, Icon-Untergrenze, MIME-Gate (`ImagePolicy`)
+- **Migrations-DDL** – die handgeschriebene v4→v5-Migration gegen Rooms exportiertes Schema (`AttachmentSchema`)
 - **Export/Import-Round-Trip** – Archiv exportiert und wieder eingelesen, alle drei Formate, über
   mehrere Blöcke hinweg, inkl. falscher Passphrase und doppeltem Import (`VaultTransfer`)
 - **JSON-Format** – verlustfrei inkl. Umbrüchen/Tabs/Emoji, eine Nachricht pro Zeile (`VaultJson`)
@@ -270,9 +304,9 @@ util/    PermissionUtils, ExportNaming, SearchUtils, ShareExport (Teilen pro Cha
          VaultTransfer– gestreamter Export/Import + Vorschau, Merge in Blöcken
          VaultCodec + VaultBackup (verschlüsselter Container .kpvault)
          ExportUtils  – dieselben Formate im Speicher, für den Export pro Chat
-schemas/ Room-Schema-JSON (Referenz für handgeschriebene Migrationen)
-src/test JUnit-Unit-Tests (MessageId, Grouping, Deletion, Noise, WatchdogPolicy, ExportUtils,
-         ExportNaming,
+schemas/ Room-Schema-JSON (Referenz für handgeschriebene Migrationen, per Test abgesichert)
+src/test JUnit-Unit-Tests (MessageId, Grouping, Deletion, Noise, WatchdogPolicy, ImagePolicy,
+         AttachmentSchema, ExportUtils, ExportNaming,
          VaultJson, VaultCsv, VaultFormat, VaultTransfer, VaultCodec, VaultBackup,
          BackupMerge, RetentionPolicy, Format, SearchUtils)
 ```

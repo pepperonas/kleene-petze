@@ -33,7 +33,7 @@ object DatabaseProvider {
 
         return Room.databaseBuilder(context, AppDatabase::class.java, "vault.db")
             .openHelperFactory(factory)
-            .addMigrations(MIGRATION_2_3, MIGRATION_3_4)
+            .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
             // Destructive ONLY from v1 (intentional clean slate: old rows were grouped by the
             // unreliable title). Every later schema bump needs a real migration — a blanket
             // fallbackToDestructiveMigration() would silently wipe the whole vault.
@@ -60,6 +60,15 @@ object DatabaseProvider {
     private val MIGRATION_3_4 = object : Migration(3, 4) {
         override fun migrate(db: SupportSQLiteDatabase) {
             db.execSQL("ALTER TABLE `messages` ADD COLUMN `editSuperseded` INTEGER NOT NULL DEFAULT 0")
+        }
+    }
+
+    // v5: the attachments table (images found in notifications). The DDL lives in
+    // AttachmentSchema so a unit test can hold it against app/schemas/…/5.json — see there.
+    private val MIGRATION_4_5 = object : Migration(4, 5) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(AttachmentSchema.CREATE_TABLE)
+            db.execSQL(AttachmentSchema.CREATE_INDEX)
         }
     }
 

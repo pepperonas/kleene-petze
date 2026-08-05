@@ -21,6 +21,7 @@ class SettingsStore(private val context: Context) {
     private val retentionKey = intPreferencesKey("retention_days")
     private val lastPruneKey = longPreferencesKey("last_prune_at")
     private val noiseCleanupKey = intPreferencesKey("noise_cleanup_version")
+    private val captureImagesKey = booleanPreferencesKey("capture_images")
     private val autoStartKey = booleanPreferencesKey("auto_start_on_boot")
     private val lastWatchdogKey = longPreferencesKey("last_watchdog_at")
 
@@ -51,6 +52,13 @@ class SettingsStore(private val context: Context) {
      */
     val noiseCleanupVersion: Flow<Int> = context.dataStore.data
         .map { it[noiseCleanupKey] ?: 0 }
+
+    /**
+     * Also store the preview image a notification carries, not just the caption. On by default;
+     * the pictures live inside the encrypted database and can be dropped again in Settings.
+     */
+    val captureImages: Flow<Boolean> = context.dataStore.data
+        .map { it[captureImagesKey] ?: true }
 
     /**
      * Re-bind the capture service after a reboot, after an app update, and every 15 minutes.
@@ -90,6 +98,10 @@ class SettingsStore(private val context: Context) {
 
     suspend fun setNoiseCleanupVersion(value: Int) {
         context.dataStore.edit { it[noiseCleanupKey] = value }
+    }
+
+    suspend fun setCaptureImages(value: Boolean) {
+        context.dataStore.edit { it[captureImagesKey] = value }
     }
 
     suspend fun setAutoStartOnBoot(value: Boolean) {

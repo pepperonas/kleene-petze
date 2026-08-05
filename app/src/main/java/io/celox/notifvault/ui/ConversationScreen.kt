@@ -3,17 +3,21 @@ package io.celox.notifvault.ui
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Intent
+import android.graphics.BitmapFactory
 import android.os.Build
 import android.os.PersistableBundle
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -60,6 +64,13 @@ import io.celox.notifvault.ui.theme.Motion
 import io.celox.notifvault.util.ExportNaming
 import io.celox.notifvault.util.shareExport
 import kotlinx.coroutines.launch
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import io.celox.notifvault.notif.IMAGE_PLACEHOLDER
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 private sealed interface ChatItem {
     data class DayHeader(val key: Long, val label: String) : ChatItem
@@ -97,6 +108,11 @@ fun ConversationScreen(
     // remember keyed by chat so the Flow isn't rebuilt (and the collection reset) on every recomposition.
     val messages by remember(conversationKey, pkg) { vm.messagesFor(conversationKey, pkg) }
         .collectAsStateWithLifecycle(initialValue = emptyList())
+
+    // Which bubbles carry a picture. Ids only — the blobs are fetched per visible bubble.
+    val imageIds by remember(conversationKey, pkg) { vm.attachmentIdsFor(conversationKey, pkg) }
+        .collectAsStateWithLifecycle(initialValue = emptyList())
+    val withImage = remember(imageIds) { imageIds.toSet() }
 
     // The chat's display title is the latest title we captured for it (it can change over time).
     val title = messages.lastOrNull()?.conversation ?: ""
@@ -195,7 +211,12 @@ fun ConversationScreen(
                 ) {
                     when (item) {
                         is ChatItem.DayHeader -> DaySeparator(item.label)
-                        is ChatItem.Bubble -> MessageBubble(item.msg, item.showSender)
+                        is ChatItem.Bubble -> MessageBubble(
+                            item.msg,
+                            item.showSender,
+                            hasImage = item.msg.id in withImage,
+                            loadImage = vm::attachmentBytes
+                        )
                     }
                 }
             }
@@ -224,6 +245,31 @@ fun ConversationScreen(
     }
 }
 
+/**
+ * The picture stored with a message. Loaded and decoded off the main thread, and only for a
+ * bubble that is actually composed — a chat full of images must not pull every blob out of the
+ * database to draw a list.
+ */
+@Composable
+private fun AttachmentImage(messageId: String, load: suspend (String) -> ByteArray?) {
+    var image by remember(messageId) { mutableStateOf<ImageBitmap?>(null) }
+    LaunchedEffect(messageId) {
+        image = withContext(Dispatchers.IO) {
+            runCatching {
+                load(messageId)?.let { BitmapFactory.decodeByteArray(it, 0, it.size)?.asImageBitmap() }
+            }.getOrNull()
+        }
+    }
+    image?.let {
+        Image(
+            bitmap = it,
+            contentDescription = "Bild aus der Benachrichtigung",
+            contentScale = ContentScale.FillWidth,
+            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+        )
+    }
+}
+
 @Composable
 private fun DaySeparator(label: String) {
     Box(Modifier.fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
@@ -244,7 +290,12 @@ private fun DaySeparator(label: String) {
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun MessageBubble(m: CapturedMessage, showSender: Boolean) {
+private fun MessageBubble(
+    m: CapturedMessage,
+    showSender: Boolean,
+    hasImage: Boolean = false,
+    loadImage: suspend (String) -> ByteArray? = { null }
+) {
     val deleted = m.deletionSuspected
     val edited = m.editSuperseded
     // Deleted wins visually over edited (an edited-then-deleted message shows as deleted).
@@ -290,7 +341,15 @@ private fun MessageBubble(m: CapturedMessage, showSender: Boolean) {
                             color = identityColor(m.sender)
                         )
                     }
-                    Text(m.text, style = MaterialTheme.typography.bodyLarge)
+                    if (hasImage) {
+                        AttachmentImage(m.id, loadImage)
+                        Spacer(Modifier.height(6.dp))
+                    }
+                    // A caption is an ordinary message text; only a picture that arrived without
+                    // one carries the placeholder, and repeating that under the image is noise.
+                    if (!(hasImage && m.text == IMAGE_PLACEHOLDER)) {
+                        Text(m.text, style = MaterialTheme.typography.bodyLarge)
+                    }
 
                     Row(
                         Modifier.fillMaxWidth().padding(top = 2.dp),

@@ -37,7 +37,7 @@ object NoiseCleanup {
             .filter { isNoiseText(it.text) || isNoiseText(it.conversation) }
             .map { it.id }
             .chunked(BackupMerge.FLAG_CHUNK)
-            .forEach { dao.deleteByIds(it) }
+            .forEach { dao.deleteAttachmentsByIds(it); dao.deleteByIds(it) }
 
         // Only claim the version once the pass actually completed — the caller wraps this in
         // runCatching, so claiming up front would turn one transient failure into "never again".

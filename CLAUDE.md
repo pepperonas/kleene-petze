@@ -20,7 +20,7 @@ Single Gradle module (`:app`), Kotlin + Jetpack Compose, minSdk 26 / target+comp
 ./gradlew assembleDebug        # APK → app/build/outputs/apk/debug/
 ./gradlew installDebug         # build + install to connected device/emulator
 ./gradlew lint                 # Android lint
-./gradlew testDebugUnitTest    # 170 JVM unit tests (MessageId, Grouping, Deletion, Noise, WatchdogPolicy, ExportUtils, ExportNaming, VaultJson, VaultCsv, VaultFormat, VaultTransfer, VaultCodec, VaultBackup, BackupMerge, RetentionPolicy, Format, SearchUtils)
+./gradlew testDebugUnitTest    # 182 JVM unit tests (MessageId, Grouping, Deletion, Noise, WatchdogPolicy, ImagePolicy, AttachmentSchema, ExportUtils, ExportNaming, VaultJson, VaultCsv, VaultFormat, VaultTransfer, VaultCodec, VaultBackup, BackupMerge, RetentionPolicy, Format, SearchUtils)
 ./gradlew testDebugUnitTest --tests "io.celox.notifvault.notif.MessageIdTest"   # single test class
 ```
 
@@ -127,6 +127,21 @@ The whole app is one pipeline: a system notification → a stored, encrypted row
    the *title* and the contact name in the text, so matching only the message text let it through — and since
    the title becomes `conversation`, it surfaced as a chat literally named "Verpasster Sprachanruf". The same
    title-or-text rule applies in `NoiseCleanup` (v2 matched nothing for exactly this reason).
+   **Images (v1.9.0), `notif/NotificationImages.kt` + `ImagePolicy.kt`.** A caption is the message
+   text and was always stored; the gap was elsewhere. Two changes: the MessagingStyle loop no longer
+   drops a message whose text is empty *when it carries an image* (it gets `IMAGE_PLACEHOLDER` so it
+   has a content hash to live under — a captionless photo used to vanish entirely), and the image
+   itself is now kept. Sources, in order: `MessagingStyle.Message.getDataUri()` (per message, the
+   precise one), else `BigPictureStyle`'s `EXTRA_PICTURE` / `EXTRA_PICTURE_ICON` (per notification →
+   attached to the newest message). The extractor only *points* at the source via `PendingImage`;
+   decoding needs a Context and happens in the service. **It must happen there and then:** a listener
+   holds `FLAG_GRANT_READ_URI_PERMISSION` on a notification's Uris only while the notification is
+   live, so a stored Uri opened later would fail — nothing is deferred to a worker. What lands in the
+   vault is the *preview* the messenger built for the shade, re-compressed to ≤ 1280 px / ≤ 512 KB
+   JPEG, never the original file. `ImagePolicy` holds the framework-free maths (`sampleSize`,
+   `scaledSize`, the icon/avatar floor, the mime gate — an unknown mime counts as supported because
+   WhatsApp does not always declare one and the decoder is the better arbiter).
+
    **Deletion detection:**
    when a still-unread message is deleted, WhatsApp re-posts the notification with the text replaced by a
    placeholder (`notif/Deletion.isDeletionPlaceholder`, unit-tested) while keeping the original sender +
@@ -144,15 +159,27 @@ The whole app is one pipeline: a system notification → a stored, encrypted row
    re-delivered inside many successive notifications collapses to exactly one row. Don't change the hash
    inputs or conflict strategy — it silently re-duplicates the vault.
 
-4. **`data/`** — Room (`AppDatabase` **v4**, single `messages` table) over **SQLCipher**. `DatabaseProvider`
+4. **`data/`** — Room (`AppDatabase` **v5**: `messages` + `attachments`) over **SQLCipher**.
+   **`CapturedAttachment` (v5)** keeps a captured image as a BLOB *inside* the encrypted database
+   rather than as a file in app storage — that is what keeps "everything encrypted at rest" true for
+   pictures too. Its own table on purpose: a blob column on `messages` would be dragged through the
+   overview and chat queries that run constantly; here the bytes are read only for a bubble on
+   screen (`attachmentIdsFor` returns ids, `attachment(id)` the blob). Deletes are **paired
+   explicitly** — attachments first, messages second — in every path (chat delete, clear, retention
+   prune, noise cleanup): `ON DELETE CASCADE` only fires while SQLite has `PRAGMA foreign_keys` on,
+   and an orphaned blob is invisible, showing up only as storage that never shrinks. The v4→v5
+   migration DDL lives in `AttachmentSchema` as plain strings so **`AttachmentSchemaTest` compares it
+   against Room's exported `app/schemas/…/5.json` on every test run** — a mismatch otherwise only
+   surfaces as a device refusing to open the vault at all. `DatabaseProvider`
    is a singleton that loads the native `sqlcipher` lib, builds the DB with a 32-byte random passphrase stored
    in `EncryptedSharedPreferences` (AES-256-GCM, Android Keystore). **Destructive migration only from v1**
    (`fallbackToDestructiveMigrationFrom(1)` — intentional clean slate, old rows were grouped by the
    unreliable title); every later bump needs a real `Migration` (v2→3: `MIGRATION_2_3` swaps the index set
    for a composite `conversationKey+packageName+messageTime`; v3→4: `MIGRATION_3_4` adds the
-   `editSuperseded` column). `exportSchema = true` writes the expected
+   `editSuperseded` column; v4→5: `MIGRATION_4_5` creates the `attachments` table).
+   `exportSchema = true` writes the expected
    schema JSON to `app/schemas/` — hand-written migration DDL must match it exactly (verify index names
-   there). `MessageDao` groups/filters by **`conversationKey`** (the overview's bare columns
+   there); since v5 that check is automated, see `AttachmentSchemaTest`. `MessageDao` groups/filters by **`conversationKey`** (the overview's bare columns
    resolve to the `MAX(messageTime)` row → latest title + last message; `SUM(deletionSuspected)` /
    `SUM(editSuperseded)` → `deletedCount`/`editedCount` per chat). `markDeleted(key, sender, time)` flags a
    stored original when a deletion placeholder arrives; `markEditSuperseded(key, pkg, sender, time, newId)`
@@ -174,7 +201,7 @@ The whole app is one pipeline: a system notification → a stored, encrypted row
    "never again". `SettingsStore` (DataStore) holds the monitored-package set, capture-all flag,
    biometric-lock flag,
    `lastCaptureAt` heartbeat, `retentionDays` (0 = forever), `lastPruneAt`, `noiseCleanupVersion`,
-   `autoStartOnBoot` (default **true**) and `lastWatchdogAt`;
+   `autoStartOnBoot` (default **true**), `captureImages` (default **true**) and `lastWatchdogAt`;
    `KNOWN_MESSENGERS` is the Settings toggle list, `DEFAULT_PACKAGES` the WhatsApp default.
 
 5. **`ui/`** — Compose. `MainActivity` is a **`FragmentActivity`** (required by `BiometricPrompt`); it gates
@@ -249,8 +276,13 @@ and `NoiseCleanup.runOnce`.
 
 ## Things to keep in mind
 
-- **Media can't be captured** — photos/voice/video aren't in the notification payload and Scoped Storage
-  blocks WhatsApp's media folder. Don't attempt to add media capture; it's a documented hard limitation.
+- **Media: the original file can't be captured, the notification's preview can (v1.9.0).** Scoped
+  Storage blocks WhatsApp's media folder, so the sent file itself stays out of reach — that part is
+  still a hard limit, and no amount of work changes it. What *is* reachable is the preview the
+  messenger builds for the shade: `MessagingStyle.Message.getDataUri()` (and `BigPictureStyle`'s
+  `EXTRA_PICTURE`). Voice notes and video have no such preview, so those remain text-only.
+  **A caption was never the problem** — a caption *is* the message text and has always been stored;
+  what was lost were captionless pictures, dropped by the `text.isEmpty()` guard in the extractor.
 - **Don't add network permissions or dependencies.** The privacy guarantee (offline-only) is a feature.
 - **Keep decision logic in framework-free seams.** There are no instrumented tests here (no emulator in
   the loop), so anything worth verifying — grouping, dedup, retention, restore-merge, file names, codecs —

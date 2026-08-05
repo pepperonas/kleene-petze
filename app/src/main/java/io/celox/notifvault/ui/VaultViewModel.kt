@@ -58,11 +58,32 @@ class VaultViewModel(app: Application) : AndroidViewModel(app) {
     fun messagesFor(conversationKey: String, pkg: String) =
         dao.messagesFor(conversationKey, pkg)
 
+    /** Which messages in this chat have a picture — ids only, the bytes stay in the database. */
+    fun attachmentIdsFor(conversationKey: String, pkg: String) =
+        dao.attachmentIdsFor(conversationKey, pkg)
+
+    suspend fun attachmentBytes(messageId: String): ByteArray? = withContext(Dispatchers.IO) {
+        dao.attachment(messageId)?.bytes
+    }
+
+    val attachmentCount: StateFlow<Int> =
+        dao.attachmentCount().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    val attachmentBytesTotal: StateFlow<Long> =
+        dao.attachmentBytes().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L)
+
+    fun deleteAllImages() = viewModelScope.launch { dao.clearAttachments() }
+
+    // Attachments before messages in every delete path — see the note in MessageDao.
     fun deleteConversation(conversationKey: String, pkg: String) = viewModelScope.launch {
+        dao.deleteAttachmentsFor(conversationKey, pkg)
         dao.deleteConversation(conversationKey, pkg)
     }
 
-    fun clearAll() = viewModelScope.launch { dao.clear() }
+    fun clearAll() = viewModelScope.launch {
+        dao.clearAttachments()
+        dao.clear()
+    }
 
     suspend fun exportAll() = dao.exportAll()
 
@@ -103,6 +124,7 @@ class VaultViewModel(app: Application) : AndroidViewModel(app) {
     fun setCaptureAll(value: Boolean) = viewModelScope.launch { settings.setCaptureAll(value) }
     fun setMonitored(packages: Set<String>) = viewModelScope.launch { settings.setMonitored(packages) }
     fun setBiometric(value: Boolean) = viewModelScope.launch { settings.setBiometricLock(value) }
+    fun setCaptureImages(value: Boolean) = viewModelScope.launch { settings.setCaptureImages(value) }
     fun setRetentionDays(days: Int) = viewModelScope.launch { settings.setRetentionDays(days) }
 
     /** Also starts/stops the watchdog job right away — the toggle has to take effect now. */
