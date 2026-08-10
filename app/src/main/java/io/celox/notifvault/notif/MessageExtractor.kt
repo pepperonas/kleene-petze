@@ -64,12 +64,16 @@ class MessageExtractor(private val pm: PackageManager) {
                 ongoing = n.flags and Notification.FLAG_ONGOING_EVENT != 0,
                 foregroundService = n.flags and Notification.FLAG_FOREGROUND_SERVICE != 0,
                 category = runCatching { n.category }.getOrNull(),
-                // A progress bar means a transfer, not a message — this is what WhatsApp's
-                // "Sending video to …" upload notification carries.
+                // A *visible* progress bar means a transfer, not a message — this is what
+                // WhatsApp's "Sending video to …" upload notification carries. Values, never
+                // containsKey: NotificationCompat stamps the keys (0/0/false) on every
+                // notification it builds, so key presence matched every message (see
+                // isActiveProgress).
                 hasProgress = n.extras?.let {
-                    it.containsKey(Notification.EXTRA_PROGRESS_MAX) ||
-                        it.containsKey(Notification.EXTRA_PROGRESS) ||
-                        it.containsKey(Notification.EXTRA_PROGRESS_INDETERMINATE)
+                    isActiveProgress(
+                        progressMax = it.getInt(Notification.EXTRA_PROGRESS_MAX, 0),
+                        indeterminate = it.getBoolean(Notification.EXTRA_PROGRESS_INDETERMINATE, false)
+                    )
                 } == true
             )
         ) return ExtractResult.EMPTY

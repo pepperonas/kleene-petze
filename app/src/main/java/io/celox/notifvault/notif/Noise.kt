@@ -32,7 +32,7 @@ private val NOISE_CATEGORIES = setOf(
 /**
  * True when the whole notification is a status/service notification rather than a message.
  * [ongoing] = `FLAG_ONGOING_EVENT`, [foregroundService] = `FLAG_FOREGROUND_SERVICE`,
- * [hasProgress] = the notification carries `EXTRA_PROGRESS*`.
+ * [hasProgress] = the notification shows a *visible* progress bar (see [isActiveProgress]).
  *
  * The progress check is what catches WhatsApp's media upload ("Sending video to Alice"): a
  * progress bar is never a message, and unlike a phrase list it works in every language.
@@ -44,6 +44,23 @@ fun isNonMessageNotification(
     hasProgress: Boolean = false
 ): Boolean =
     ongoing || foregroundService || hasProgress || category?.lowercase() in NOISE_CATEGORIES
+
+/**
+ * Whether the `EXTRA_PROGRESS*` values describe a progress bar that is actually shown.
+ *
+ * Key *presence* is meaningless: `NotificationCompat.Builder` unconditionally calls
+ * `setProgress(0, 0, false)` for every notification it builds, and the platform builder writes
+ * all three extras the moment it is called — so **every message from every androidx-built app
+ * carries the keys** with their "no bar" defaults. Checking `containsKey` therefore classified
+ * every WhatsApp message (deletion placeholders included) as upload progress and dropped it —
+ * the app captured nothing from v1.7.2 to v1.9.0.
+ *
+ * `(max = 0, indeterminate = false)` is the documented way to *remove* a progress bar; a real
+ * one is indeterminate or has `max > 0`. The current progress value doesn't matter — a
+ * determinate bar with `max = 0` renders nothing.
+ */
+fun isActiveProgress(progressMax: Int, indeterminate: Boolean): Boolean =
+    indeterminate || progressMax > 0
 
 /**
  * The service phrases themselves, lowercased. Matched with `contains` so a prefixed/suffixed

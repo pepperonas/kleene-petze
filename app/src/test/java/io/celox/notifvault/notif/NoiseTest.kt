@@ -101,6 +101,29 @@ class NoiseTest {
         assertFalse(isNonMessageNotification(false, false, null, hasProgress = false))
     }
 
+    // ---- isActiveProgress ----
+    //
+    // The v1.7.2..v1.9.0 regression: NotificationCompat unconditionally stamps
+    // setProgress(0, 0, false) onto every notification it builds, so the extras keys exist on
+    // every WhatsApp message — checking containsKey dropped them all, deletion placeholders
+    // included. Only the *values* say whether a bar is shown.
+
+    @Test
+    fun `the androidx default triple is not a progress bar`() {
+        assertFalse(isActiveProgress(progressMax = 0, indeterminate = false))
+    }
+
+    @Test
+    fun `a determinate transfer is a progress bar`() {
+        assertTrue(isActiveProgress(progressMax = 100, indeterminate = false))
+        assertTrue(isActiveProgress(progressMax = 1, indeterminate = false))
+    }
+
+    @Test
+    fun `an indeterminate bar is a progress bar even with max 0`() {
+        assertTrue(isActiveProgress(progressMax = 0, indeterminate = true))
+    }
+
     @Test
     fun `media transfer progress is noise`() {
         assertTrue(isNoiseText("Sending video to Michaela Pampel"))

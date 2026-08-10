@@ -20,7 +20,7 @@ Single Gradle module (`:app`), Kotlin + Jetpack Compose, minSdk 26 / target+comp
 ./gradlew assembleDebug        # APK → app/build/outputs/apk/debug/
 ./gradlew installDebug         # build + install to connected device/emulator
 ./gradlew lint                 # Android lint
-./gradlew testDebugUnitTest    # 182 JVM unit tests (MessageId, Grouping, Deletion, Noise, WatchdogPolicy, ImagePolicy, AttachmentSchema, ExportUtils, ExportNaming, VaultJson, VaultCsv, VaultFormat, VaultTransfer, VaultCodec, VaultBackup, BackupMerge, RetentionPolicy, Format, SearchUtils)
+./gradlew testDebugUnitTest    # 185 JVM unit tests (MessageId, Grouping, Deletion, Noise, WatchdogPolicy, ImagePolicy, AttachmentSchema, ExportUtils, ExportNaming, VaultJson, VaultCsv, VaultFormat, VaultTransfer, VaultCodec, VaultBackup, BackupMerge, RetentionPolicy, Format, SearchUtils)
 ./gradlew testDebugUnitTest --tests "io.celox.notifvault.notif.MessageIdTest"   # single test class
 ```
 
@@ -104,7 +104,7 @@ The whole app is one pipeline: a system notification → a stored, encrypted row
    resolve `conversationTitle` → `EXTRA_TITLE` → app label.
    **Noise filter (`notif/Noise.kt`, `NoiseTest`):** two independent, narrow filters —
    structural `isNonMessageNotification(ongoing, foregroundService, category, hasProgress)` drops
-   `FLAG_ONGOING_EVENT` / `FLAG_FOREGROUND_SERVICE` posts, notifications carrying `EXTRA_PROGRESS*`, and the
+   `FLAG_ONGOING_EVENT` / `FLAG_FOREGROUND_SERVICE` posts, notifications with a *visible* progress bar, and the
    `service`/`progress`/`transport`/`call`/**`missed_call`**/
    `navigation`/`sys` categories (language-independent; WhatsApp's permanent "Überprüfe auf neue Nachrichten"
    is a foreground-service notification, so the platform flags it), and textual `isNoiseText` matches the
@@ -112,10 +112,19 @@ The whole app is one pipeline: a system notification → a stored, encrypted row
    backup/restore progress), `CALL_NOISE_MARKERS` and `MEDIA_NOISE_MARKERS`, plus a `WHOLE_TEXT_NOISE` set
    matched only against the *entire* text (a bare "Sending…" is a progress update, but as a substring it
    would hit ordinary sentences).
-   **Media progress (v1.7.2):** WhatsApp posts one continuously-updated notification per upload
-   ("Sending video to Alice") — on a real device that had accumulated **2380 rows** in a junk chat named
-   after the app. The `hasProgress` check is the durable fix (a progress bar is never a message, in any
-   language); the marker list only exists for rows captured earlier. The same device also revealed that
+   **Media progress (v1.7.2) + the v1.9.1 regression fix:** WhatsApp posts one continuously-updated
+   notification per upload ("Sending video to Alice") — on a real device that had accumulated **2380 rows**
+   in a junk chat named after the app. The `hasProgress` idea is the durable fix (a progress bar is never a
+   message, in any language) — but the v1.7.2 wiring checked `containsKey(EXTRA_PROGRESS*)`, and
+   **`NotificationCompat.Builder` unconditionally stamps `setProgress(0, 0, false)` onto every notification
+   it builds** (the platform builder writes all three extras the moment it's called, AOSP
+   `Notification.java`), so *every* message from every androidx-built messenger carried the keys → **the app
+   captured nothing from v1.7.2 to v1.9.0**, deletion placeholders included (that outage was first
+   mis-attributed to the listener-unbind issue v1.8.0 fixed — which was real, but not the cause).
+   Since v1.9.1 the extractor passes the *values* into the framework-free **`isActiveProgress(progressMax,
+   indeterminate)`** (`Noise.kt`): a real bar is indeterminate or has `max > 0`; `(0, 0, false)` is the
+   documented "remove the bar". Never gate on the mere presence of a notification extra — androidx sets
+   many of them unconditionally. The same device also revealed that
    WhatsApp words an ongoing call **"Aktiver Sprachanruf"**, which no earlier marker covered. **Calls (v1.6.3):** WhatsApp keeps voice/video calls
    in their own notification, so they became their own vault chat. Incoming/ongoing calls were already
    covered (foreground service + `CATEGORY_CALL`); a **missed** call is a plain notification with
