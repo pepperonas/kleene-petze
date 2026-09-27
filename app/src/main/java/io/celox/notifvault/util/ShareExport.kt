@@ -23,7 +23,10 @@ suspend fun shareExport(
     val uri = withContext(Dispatchers.IO) {
         val content = if (csv) ExportUtils.toCsv(messages) else ExportUtils.toJson(messages)
         val ext = if (csv) "csv" else "json"
-        val dir = File(context.cacheDir, "exports").apply { mkdirs() }
+        // Only ever one plaintext copy outside the encrypted database: the previous share's
+        // file is removed before the next one is written (and at every app start, see
+        // [clearShareExports]) instead of lingering in the cache indefinitely.
+        val dir = clearShareExports(context).apply { mkdirs() }
         val file = File(dir, "$fileBaseName.$ext")
         file.writeText(content)
         FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
@@ -34,4 +37,15 @@ suspend fun shareExport(
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
     }
     context.startActivity(Intent.createChooser(share, "Export teilen").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+}
+
+/**
+ * Deletes every plaintext chat export left in the cache. A shared file has to exist while the
+ * receiving app reads it, so it cannot be deleted right after the share sheet opens; cleaning up
+ * on the next export and at app start bounds its life to "until the app is used again".
+ */
+fun clearShareExports(context: Context): File {
+    val dir = File(context.cacheDir, "exports")
+    dir.listFiles()?.forEach { it.delete() }
+    return dir
 }

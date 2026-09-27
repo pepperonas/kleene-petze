@@ -1,0 +1,31 @@
+{
+  "specVersion": "1.0",
+  "host": {
+    "displayName": "Kleene Petze",
+    "identifier": "did:web:kleene-petze.celox.io",
+    "documentationUrl": "https://kleene-petze.celox.io/llms.txt"
+  },
+  "entries": [
+    {
+      "identifier": "urn:air:kleene-petze.celox.io:skills:get-kleene-petze",
+      "displayName": "Get Kleene Petze",
+      "type": "text/markdown; profile=\"urn:air:agent-skills\"",
+      "url": "https://kleene-petze.celox.io/skills/get-kleene-petze/SKILL.md",
+      "description": "Kleene Petze is a free, open-source (MIT) Android app for Android 8.0 and later that saves incoming message notifications permanently and encrypted on the device — like Android's notification history, but without the 24-hour expiry. Because WhatsApp posts no notification when a message is deleted, the copy captured on arrival survives: messages the sender deletes while they are still unread stay readable and are marked as deleted, and earlier versions of edited messages are kept too. It works for WhatsApp, WhatsApp Business, Signal, Telegram, Instagram, Messenger and Google Messages, or for every app. Messages are grouped into chats, searchable, and can be exported and imported as an encrypted file, JSON or CSV. The database is encrypted with SQLCipher (AES-256), an optional biometric lock protects the app, and nothing leaves the phone; the only network access is an update check that is off unless you switch it on. Distributed as a signed APK through GitHub Releases.",
+      "tags": [
+        "android",
+        "whatsapp",
+        "notification-archive",
+        "privacy",
+        "open-source",
+        "apk"
+      ],
+      "representativeQueries": [
+        "Download the latest Kleene Petze APK",
+        "Which version of Kleene Petze is current?",
+        "How do I verify the Kleene Petze APK signature?",
+        "Android app that keeps deleted WhatsApp messages readable"
+      ]
+    }
+  ]
+}

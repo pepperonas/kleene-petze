@@ -22,8 +22,8 @@ android {
         applicationId = "io.celox.notifvault"
         minSdk = 26
         targetSdk = 35
-        versionCode = 20
-        versionName = "1.9.1"
+        versionCode = 21
+        versionName = "1.10.0"
         vectorDrawables { useSupportLibrary = true }
     }
 
@@ -60,11 +60,19 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions { jvmTarget = "17" }
+    kotlinOptions {
+        jvmTarget = "17"
+        freeCompilerArgs += "-opt-in=androidx.compose.material3.ExperimentalMaterial3ExpressiveApi"
+    }
 
     // buildConfig: the Settings screen shows the running version, which is the quickest way to
     // tell whether an update actually landed on the device.
     buildFeatures { compose = true; buildConfig = true }
+    lint {
+        // AGP 8.7.3's bundled lint crashes against the AndroidX artifacts pulled by material3
+        // 1.5.0-alpha18 (same as Brutus) — the app uses no LiveData, so nothing is lost.
+        disable += "NullSafeMutableLiveData"
+    }
     packaging {
         resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" }
     }
@@ -75,7 +83,11 @@ android {
 ksp { arg("room.schemaLocation", "$projectDir/schemas") }
 
 dependencies {
-    val composeBom = platform("androidx.compose:compose-bom:2024.10.01")
+    // BOM 2026.06.01 maps material3 1.4.0 — the Expressive APIs (MaterialExpressiveTheme,
+    // MotionScheme) are still internal there, so material3 is pinned past the BOM like Brutus
+    // and Flipper: 1.5.0-alpha18 is the newest alpha still on Compose 1.11 (alpha19+ needs
+    // compileSdk 37 + AGP 9.1).
+    val composeBom = platform("androidx.compose:compose-bom:2026.06.01")
     implementation(composeBom)
 
     implementation("androidx.core:core-ktx:1.15.0")
@@ -88,9 +100,9 @@ dependencies {
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
-    implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.material3:material3:1.5.0-alpha18")
     implementation("androidx.compose.material:material-icons-extended")
-    implementation("androidx.navigation:navigation-compose:2.8.3")
+    implementation("androidx.navigation:navigation-compose:2.8.5")
 
     // NotificationCompat (MessagingStyle extraction)
     implementation("androidx.core:core:1.15.0")
@@ -112,6 +124,9 @@ dependencies {
     implementation("androidx.biometric:biometric:1.2.0-alpha05")
     implementation("androidx.fragment:fragment-ktx:1.8.5")
 
+    // Opt-in daily update check (v1.10.0). 2.10.x is the newest line still on compileSdk 35.
+    implementation("androidx.work:work-runtime-ktx:2.10.0")
+
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 
@@ -119,4 +134,6 @@ dependencies {
 
     // Unit tests (pure JVM)
     testImplementation("junit:junit:4.13.2")
+    // android.jar only ships stubs of org.json; the real one lets the update parsers run on the JVM.
+    testImplementation("org.json:json:20240303")
 }

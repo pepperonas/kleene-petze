@@ -1,0 +1,478 @@
+{
+ "$comment": "Kleene Petze product page — built with the product-page kit (~/claude/_templates/apps/product-page). Change texts here, then run build.py --force.",
+ "name": "Kleene Petze",
+ "slug": "kleene-petze",
+ "aliases": [
+  "kleenepetze.celox.io"
+ ],
+ "repo": "pepperonas/kleene-petze",
+ "branch": "main",
+ "tagline": "Petzt alles. Vergisst nie.",
+ "license": "MIT",
+ "year": 2026,
+ "asset_version": 1,
+ "theme_source": "app/src/main/java/io/celox/notifvault/ui/theme/Color.kt — the app's dark scheme (teal on the ink night sky of the artwork, amber accent)",
+ "theme": {
+  "bg": "#0D1528",
+  "bg-lowest": "#080E1C",
+  "surface-low": "#121B30",
+  "surface": "#162137",
+  "surface-high": "#1D2941",
+  "surface-highest": "#26334C",
+  "on-bg": "#E2E8F0",
+  "on-variant": "#C3CCD8",
+  "outline": "#8491A4",
+  "outline-variant": "#3A475C",
+  "primary": "#5EEAD4",
+  "on-primary": "#003731",
+  "primary-container": "#0F766E",
+  "on-primary-container": "#CCFBF1",
+  "secondary-container": "#344B47",
+  "on-secondary-container": "#CDE8E2",
+  "tertiary": "#FCD34D",
+  "accent": "#14B8A6"
+ },
+ "hero": {
+  "bg": "#0D1528",
+  "width": 2912,
+  "height": 1440
+ },
+ "screens": {
+  "width": 1600,
+  "height": 894
+ },
+ "ld": {
+  "type": "MobileApplication",
+  "category": "UtilitiesApplication",
+  "subcategory": "Notification archive",
+  "os": "Android 8.0 or later"
+ },
+ "targets": [
+  {
+   "id": "android",
+   "label": "Download APK",
+   "short": "APK",
+   "asset": "^kleene-petze-v[0-9][0-9A-Za-z.\\-]*\\.apk$",
+   "requirement": "Android 8.0+",
+   "ua": "android"
+  }
+ ],
+ "chips": [
+  {
+   "label": "WhatsApp",
+   "color": "#25D366"
+  },
+  {
+   "label": "WhatsApp Business",
+   "color": "#1DAA61"
+  },
+  {
+   "label": "Signal",
+   "color": "#3A76F0"
+  },
+  {
+   "label": "Telegram",
+   "color": "#26A5E4"
+  },
+  {
+   "label": "Instagram",
+   "color": "#E1306C"
+  },
+  {
+   "label": "Messenger",
+   "color": "#0A7CFF"
+  },
+  {
+   "label": "Google Messages",
+   "color": "#1A73E8"
+  }
+ ],
+ "verify_rows": [
+  {
+   "label": {
+    "en": "Signing certificate SHA-256",
+    "de": "SHA-256 des Signaturzertifikats",
+    "es": "SHA-256 del certificado de firma",
+    "it": "SHA-256 del certificato di firma",
+    "fr": "SHA-256 du certificat de signature"
+   },
+   "value": "0560befbf32c64ede5a518a18bf6799c44f85b45853e97723914d4a84aafe379"
+  }
+ ],
+ "content": {
+  "meta": {
+   "title": "Kleene Petze — Keep Deleted WhatsApp Messages Readable",
+   "description": "Free, open-source Android app that archives your message notifications permanently and encrypted — deleted WhatsApp messages stay readable. On-device only.",
+   "og_title": "Kleene Petze — petzt alles. vergisst nie.",
+   "og_description": "Free Android app that keeps every message notification in an encrypted on-device archive, so messages deleted by the sender stay readable.",
+   "twitter_description": "Free, open-source Android app: an encrypted, permanent archive of your message notifications. Deleted and edited WhatsApp messages stay readable.",
+   "image_alt": "A green parrot with headphones and a monocle sits on a teal safe with an orange padlock; next to it, chat bubbles dissolve into smoke."
+  },
+  "summary": "Kleene Petze is a free, open-source (MIT) Android app for Android 8.0 and later that saves incoming message notifications permanently and encrypted on the device — like Android's notification history, but without the 24-hour expiry. Because WhatsApp posts no notification when a message is deleted, the copy captured on arrival survives: messages the sender deletes while they are still unread stay readable and are marked as deleted, and earlier versions of edited messages are kept too. It works for WhatsApp, WhatsApp Business, Signal, Telegram, Instagram, Messenger and Google Messages, or for every app. Messages are grouped into chats, searchable, and can be exported and imported as an encrypted file, JSON or CSV. The database is encrypted with SQLCipher (AES-256), an optional biometric lock protects the app, and nothing leaves the phone; the only network access is an update check that is off unless you switch it on. Distributed as a signed APK through GitHub Releases.",
+  "meta_fallback": "Newest release · Android 8.0+ · free, MIT licence",
+  "feature_list": [
+   "Permanent archive of incoming message notifications, grouped into chats",
+   "Messages deleted by the sender while unread stay readable and are marked as deleted",
+   "Earlier versions of edited messages are kept and marked",
+   "“Uncovered” view listing every deleted and edited message across all chats",
+   "Works with WhatsApp, WhatsApp Business, Signal, Telegram, Instagram, Messenger, Google Messages — or every app",
+   "Pictures: the preview image a notification carries is saved too (optional)",
+   "Full-text search with highlighted matches",
+   "Encrypted database (SQLCipher, AES-256) with the key in the Android Keystore",
+   "Optional biometric or screen-lock app lock; hidden from the recent-apps preview while it is on",
+   "Export and import of the whole archive as an encrypted file, JSON or CSV — import only adds, never overwrites",
+   "Export of a single chat as CSV or JSON",
+   "Optional retention period for automatic deletion of old messages",
+   "Self-healing capture: reconnects after reboots and app updates, with a status check in Settings",
+   "Material 3 Expressive interface with light, dark and system theme",
+   "Opt-in update check: a daily look at the newest version, a notification when one is out",
+   "No ads, no tracking, no account; nothing leaves the device"
+  ],
+  "limits": [
+   "Android only; not on Google Play — distributed as an APK through GitHub Releases.",
+   "Only messages that arrive as a notification on this phone are saved: muted chats and messages you receive while the chat is open often post none.",
+   "A message deleted after you have already read it cannot be recovered — there is no notification left to keep.",
+   "Voice messages, videos and original files are never part of a notification; pictures are kept only as the smaller preview.",
+   "The user interface is German.",
+   "It does not download or install updates by itself — it only tells you, and you install the new APK over the old one."
+  ],
+  "hero.kicker": {
+   "en": "Android · Open source · Free",
+   "de": "Android · Open Source · Kostenlos",
+   "es": "Android · Código abierto · Gratis",
+   "it": "Android · Open source · Gratis",
+   "fr": "Android · Open source · Gratuit"
+  },
+  "hero.title": {
+   "en": "Deleted is not <br>gone anymore.",
+   "de": "Gelöscht heißt <br>nicht mehr weg.",
+   "es": "Borrado ya no <br>significa perdido.",
+   "it": "Cancellato non vuol dire <br>più sparito.",
+   "fr": "Supprimé ne veut plus <br>dire disparu."
+  },
+  "hero.lead": {
+   "en": "Kleene Petze keeps every message notification in an encrypted archive on your phone. When someone deletes a WhatsApp message before you read it, you can still read it — and see that it was deleted. No cloud, no tracking.",
+   "de": "Kleene Petze legt jede Nachrichten-Benachrichtigung in einem verschlüsselten Archiv auf deinem Handy ab. Löscht jemand eine WhatsApp-Nachricht, bevor du sie gelesen hast, kannst du sie trotzdem lesen — und siehst, dass sie gelöscht wurde. Keine Cloud, kein Tracking.",
+   "es": "Kleene Petze guarda cada notificación de mensaje en un archivo cifrado en tu móvil. Si alguien borra un mensaje de WhatsApp antes de que lo leas, podrás leerlo igualmente y ver que se borró. Sin nube, sin rastreo.",
+   "it": "Kleene Petze conserva ogni notifica di messaggio in un archivio cifrato sul tuo telefono. Se qualcuno cancella un messaggio WhatsApp prima che tu lo legga, puoi leggerlo lo stesso e vedere che è stato cancellato. Niente cloud, niente tracciamento.",
+   "fr": "Kleene Petze garde chaque notification de message dans une archive chiffrée sur votre téléphone. Si quelqu’un supprime un message WhatsApp avant que vous l’ayez lu, vous pouvez quand même le lire — et voir qu’il a été supprimé. Pas de cloud, pas de pistage."
+  },
+  "pl.h": {
+   "en": "Works with",
+   "de": "Funktioniert mit",
+   "es": "Funciona con",
+   "it": "Funziona con",
+   "fr": "Fonctionne avec"
+  },
+  "f.h": {
+   "en": "A memory for your notifications",
+   "de": "Ein Gedächtnis für deine Benachrichtigungen",
+   "es": "Una memoria para tus notificaciones",
+   "it": "Una memoria per le tue notifiche",
+   "fr": "Une mémoire pour vos notifications"
+  },
+  "features": [
+   {
+    "t": {
+     "en": "Deleted stays readable",
+     "de": "Gelöscht bleibt lesbar",
+     "es": "Lo borrado sigue legible",
+     "it": "Il cancellato resta leggibile",
+     "fr": "Le supprimé reste lisible"
+    },
+    "p": {
+     "en": "WhatsApp posts no notification when a message is deleted, so the copy saved on arrival survives. It is marked <em>deleted</em> in the chat.",
+     "de": "WhatsApp meldet das Löschen nicht, also bleibt die beim Eintreffen gesicherte Kopie erhalten. Im Chat ist sie als <em>gelöscht</em> markiert.",
+     "es": "WhatsApp no envía ninguna notificación al borrar un mensaje, así que la copia guardada al llegar se conserva. En el chat aparece marcada como <em>borrada</em>.",
+     "it": "WhatsApp non invia alcuna notifica quando un messaggio viene cancellato, quindi la copia salvata all’arrivo resta. Nella chat è segnata come <em>cancellata</em>.",
+     "fr": "WhatsApp n’envoie aucune notification quand un message est supprimé : la copie enregistrée à l’arrivée est conservée. Dans la discussion, elle est marquée <em>supprimée</em>."
+    }
+   },
+   {
+    "t": {
+     "en": "Edits uncovered",
+     "de": "Bearbeitungen aufgedeckt",
+     "es": "Ediciones al descubierto",
+     "it": "Modifiche svelate",
+     "fr": "Modifications dévoilées"
+    },
+    "p": {
+     "en": "When a message is edited, the earlier version stays in the archive, marked <em>edited</em>. The <em>Uncovered</em> view lists everything deleted or edited across all chats.",
+     "de": "Wird eine Nachricht bearbeitet, bleibt die frühere Fassung im Archiv, markiert als <em>bearbeitet</em>. Die Ansicht <em>Aufgedeckt</em> zeigt alles Gelöschte und Bearbeitete aller Chats.",
+     "es": "Si se edita un mensaje, la versión anterior queda en el archivo, marcada como <em>editada</em>. La vista <em>Aufgedeckt</em> reúne todo lo borrado o editado de todos los chats.",
+     "it": "Se un messaggio viene modificato, la versione precedente resta nell’archivio, segnata come <em>modificata</em>. La vista <em>Aufgedeckt</em> raccoglie tutto ciò che è stato cancellato o modificato.",
+     "fr": "Quand un message est modifié, la version précédente reste dans l’archive, marquée <em>modifiée</em>. La vue <em>Aufgedeckt</em> rassemble tout ce qui a été supprimé ou modifié."
+    }
+   },
+   {
+    "t": {
+     "en": "Encrypted, on your phone",
+     "de": "Verschlüsselt, auf deinem Handy",
+     "es": "Cifrado, en tu móvil",
+     "it": "Cifrato, sul tuo telefono",
+     "fr": "Chiffré, sur votre téléphone"
+    },
+    "p": {
+     "en": "SQLCipher with AES-256, the key in the Android Keystore, backups disabled. An optional biometric lock also hides the app from the recent-apps preview.",
+     "de": "SQLCipher mit AES-256, der Schlüssel im Android-Keystore, Backups abgeschaltet. Eine optionale Biometrie-Sperre verbirgt die App auch in der Übersicht der letzten Apps.",
+     "es": "SQLCipher con AES-256, la clave en el Android Keystore y las copias de seguridad desactivadas. Un bloqueo biométrico opcional oculta además la app en la vista de apps recientes.",
+     "it": "SQLCipher con AES-256, la chiave nell’Android Keystore, backup disattivati. Un blocco biometrico opzionale nasconde anche l’app nell’anteprima delle app recenti.",
+     "fr": "SQLCipher avec AES-256, la clé dans l’Android Keystore, sauvegardes désactivées. Un verrouillage biométrique facultatif masque aussi l’app dans l’aperçu des apps récentes."
+    }
+   },
+   {
+    "t": {
+     "en": "Chats, search, pictures",
+     "de": "Chats, Suche, Bilder",
+     "es": "Chats, búsqueda, imágenes",
+     "it": "Chat, ricerca, immagini",
+     "fr": "Discussions, recherche, images"
+    },
+    "p": {
+     "en": "Messages are sorted into chats like in the messenger, with full-text search. The preview picture a notification carries can be kept too.",
+     "de": "Nachrichten landen wie im Messenger in Chats, mit Volltextsuche. Das Vorschaubild einer Benachrichtigung lässt sich mitsichern.",
+     "es": "Los mensajes se ordenan en chats como en el mensajero, con búsqueda de texto completo. También puede guardarse la imagen de vista previa de la notificación.",
+     "it": "I messaggi finiscono in chat come nel messenger, con ricerca a testo pieno. Si può conservare anche l’immagine di anteprima della notifica.",
+     "fr": "Les messages sont rangés en discussions comme dans la messagerie, avec recherche plein texte. L’image d’aperçu d’une notification peut aussi être conservée."
+    }
+   },
+   {
+    "t": {
+     "en": "Export and import",
+     "de": "Export und Import",
+     "es": "Exportar e importar",
+     "it": "Esporta e importa",
+     "fr": "Export et import"
+    },
+    "p": {
+     "en": "The whole archive as an encrypted file, JSON or CSV — and back. An import only adds: nothing is overwritten, the same file twice changes nothing.",
+     "de": "Das ganze Archiv als verschlüsselte Datei, JSON oder CSV — und zurück. Ein Import fügt nur hinzu: nichts wird überschrieben, dieselbe Datei zweimal ändert nichts.",
+     "es": "Todo el archivo como fichero cifrado, JSON o CSV, y de vuelta. Una importación solo añade: no se sobrescribe nada y el mismo fichero dos veces no cambia nada.",
+     "it": "L’intero archivio come file cifrato, JSON o CSV, e ritorno. Un’importazione aggiunge soltanto: nulla viene sovrascritto e lo stesso file due volte non cambia nulla.",
+     "fr": "Toute l’archive en fichier chiffré, JSON ou CSV — et retour. Une importation ne fait qu’ajouter : rien n’est écrasé, le même fichier deux fois ne change rien."
+    }
+   },
+   {
+    "t": {
+     "en": "Keeps listening",
+     "de": "Bleibt dran",
+     "es": "Sigue escuchando",
+     "it": "Continua ad ascoltare",
+     "fr": "Reste à l’écoute"
+    },
+    "p": {
+     "en": "Android silently disconnects notification listeners after reboots, updates and battery savers. Kleene Petze reconnects by itself and shows its status in Settings.",
+     "de": "Android trennt Benachrichtigungsdienste nach Neustart, Update und Energiesparen still. Kleene Petze verbindet sich selbst neu und zeigt den Status in den Einstellungen.",
+     "es": "Android desconecta en silencio los servicios de notificaciones tras reinicios, actualizaciones y el ahorro de batería. Kleene Petze se vuelve a conectar sola y muestra su estado en los ajustes.",
+     "it": "Android scollega in silenzio i servizi di notifica dopo riavvii, aggiornamenti e risparmio energetico. Kleene Petze si ricollega da sola e mostra lo stato nelle impostazioni.",
+     "fr": "Android déconnecte en silence les services de notification après un redémarrage, une mise à jour ou l’économie de batterie. Kleene Petze se reconnecte seule et affiche son état dans les réglages."
+    }
+   }
+  ],
+  "s.h": {
+   "en": "Material 3 Expressive, with a parrot that never forgets",
+   "de": "Material 3 Expressive, mit einem Papagei, der nichts vergisst",
+   "es": "Material 3 Expressive, con un loro que nunca olvida",
+   "it": "Material 3 Expressive, con un pappagallo che non dimentica",
+   "fr": "Material 3 Expressive, avec un perroquet qui n’oublie rien"
+  },
+  "s.alt": {
+   "en": "Four screens of the German interface with invented chats: the welcome screen, the chat list, a chat with a deleted message highlighted in red, and the Uncovered view",
+   "de": "Vier Bildschirme mit erfundenen Chats: der Willkommensbildschirm, die Chatliste, ein Chat mit einer rot markierten gelöschten Nachricht und die Ansicht Aufgedeckt",
+   "es": "Cuatro pantallas de la interfaz en alemán con chats inventados: la bienvenida, la lista de chats, un chat con un mensaje borrado resaltado en rojo y la vista Aufgedeckt",
+   "it": "Quattro schermate dell’interfaccia in tedesco con chat inventate: il benvenuto, l’elenco delle chat, una chat con un messaggio cancellato evidenziato in rosso e la vista Aufgedeckt",
+   "fr": "Quatre écrans de l’interface en allemand avec des discussions inventées : l’accueil, la liste des discussions, une discussion avec un message supprimé surligné en rouge et la vue Aufgedeckt"
+  },
+  "install": [
+   {
+    "t": {
+     "en": "Download the APK",
+     "de": "APK herunterladen",
+     "es": "Descarga la APK",
+     "it": "Scarica l’APK",
+     "fr": "Téléchargez l’APK"
+    },
+    "p": {
+     "en": "One file for every phone with Android 8.0 or later — there is nothing to pick.",
+     "de": "Eine Datei für jedes Handy mit Android 8.0 oder neuer — es gibt nichts auszuwählen.",
+     "es": "Un solo archivo para cualquier móvil con Android 8.0 o posterior: no hay nada que elegir.",
+     "it": "Un solo file per ogni telefono con Android 8.0 o successivo: non c’è niente da scegliere.",
+     "fr": "Un seul fichier pour tous les téléphones sous Android 8.0 ou plus récent : rien à choisir."
+    }
+   },
+   {
+    "t": {
+     "en": "Allow the install",
+     "de": "Installation erlauben",
+     "es": "Permite la instalación",
+     "it": "Consenti l’installazione",
+     "fr": "Autorisez l’installation"
+    },
+    "p": {
+     "en": "Open the file. Android asks once whether your browser may install apps — allow it.",
+     "de": "Datei öffnen. Android fragt einmal, ob dein Browser Apps installieren darf — erlauben.",
+     "es": "Abre el archivo. Android pregunta una vez si tu navegador puede instalar apps: permítelo.",
+     "it": "Apri il file. Android chiede una volta se il browser può installare app: consentilo.",
+     "fr": "Ouvrez le fichier. Android demande une fois si votre navigateur peut installer des apps : autorisez-le."
+    }
+   },
+   {
+    "t": {
+     "en": "Grant notification access",
+     "de": "Benachrichtigungszugriff erteilen",
+     "es": "Concede el acceso a notificaciones",
+     "it": "Concedi l’accesso alle notifiche",
+     "fr": "Accordez l’accès aux notifications"
+    },
+    "p": {
+     "en": "The first screen takes you there. Also exempt the app from battery optimization — Samsung in particular stops background services otherwise.",
+     "de": "Der erste Bildschirm führt dich hin. Nimm die App außerdem von der Akku-Optimierung aus — vor allem Samsung beendet Hintergrunddienste sonst.",
+     "es": "La primera pantalla te lleva allí. Excluye también la app de la optimización de batería: Samsung en particular detiene si no los servicios en segundo plano.",
+     "it": "La prima schermata ti ci porta. Escludi anche l’app dall’ottimizzazione della batteria: soprattutto Samsung altrimenti ferma i servizi in background.",
+     "fr": "Le premier écran vous y conduit. Exemptez aussi l’app de l’optimisation de la batterie — Samsung en particulier arrête sinon les services en arrière-plan."
+    }
+   }
+  ],
+  "v.p": {
+   "en": "Every release is signed with the same key. Compare with <code>apksigner verify --print-certs</code>.",
+   "de": "Jede Version ist mit demselben Schlüssel signiert. Vergleiche mit <code>apksigner verify --print-certs</code>.",
+   "es": "Todas las versiones están firmadas con la misma clave. Compáralo con <code>apksigner verify --print-certs</code>.",
+   "it": "Ogni versione è firmata con la stessa chiave. Confronta con <code>apksigner verify --print-certs</code>.",
+   "fr": "Toutes les versions sont signées avec la même clé. Comparez avec <code>apksigner verify --print-certs</code>."
+  },
+  "i.note": {
+   "en": "Kleene Petze is not on Google Play. Every release is built and signed by GitHub Actions from the public source code and published on GitHub Releases.",
+   "de": "Kleene Petze ist nicht bei Google Play. Jede Version wird von GitHub Actions aus dem öffentlichen Quellcode gebaut, signiert und auf GitHub Releases veröffentlicht.",
+   "es": "Kleene Petze no está en Google Play. Cada versión la compila y firma GitHub Actions a partir del código fuente público y se publica en GitHub Releases.",
+   "it": "Kleene Petze non è su Google Play. Ogni versione viene compilata e firmata da GitHub Actions a partire dal codice sorgente pubblico e pubblicata su GitHub Releases.",
+   "fr": "Kleene Petze n’est pas sur Google Play. Chaque version est compilée et signée par GitHub Actions à partir du code source public, puis publiée sur GitHub Releases."
+  },
+  "faq": [
+   {
+    "q": {
+     "en": "Is Kleene Petze free?",
+     "de": "Ist Kleene Petze kostenlos?",
+     "es": "¿Kleene Petze es gratis?",
+     "it": "Kleene Petze è gratuita?",
+     "fr": "Kleene Petze est-il gratuit ?"
+    },
+    "a": {
+     "en": "Yes. It is free and open source under the MIT licence, with no ads, no account and no tracking.",
+     "de": "Ja. Die App ist kostenlos und quelloffen unter der MIT-Lizenz, ohne Werbung, ohne Konto und ohne Tracking.",
+     "es": "Sí. Es gratuita y de código abierto con licencia MIT, sin anuncios, sin cuenta y sin rastreo.",
+     "it": "Sì. È gratuita e open source con licenza MIT, senza pubblicità, senza account e senza tracciamento.",
+     "fr": "Oui. Elle est gratuite et open source sous licence MIT, sans pub, sans compte et sans pistage."
+    }
+   },
+   {
+    "q": {
+     "en": "Can it show every deleted message?",
+     "de": "Zeigt sie jede gelöschte Nachricht?",
+     "es": "¿Muestra todos los mensajes borrados?",
+     "it": "Mostra ogni messaggio cancellato?",
+     "fr": "Affiche-t-elle chaque message supprimé ?"
+    },
+    "a": {
+     "en": "Only messages that arrived as a notification on this phone. If you had already read a message before it was deleted, or the chat is muted, there was no notification to keep.",
+     "de": "Nur Nachrichten, die als Benachrichtigung auf diesem Handy ankamen. Hattest du eine Nachricht schon gelesen, bevor sie gelöscht wurde, oder ist der Chat stummgeschaltet, gab es keine Benachrichtigung zum Sichern.",
+     "es": "Solo los mensajes que llegaron como notificación a este móvil. Si ya habías leído un mensaje antes de que se borrara, o el chat está silenciado, no hubo notificación que guardar.",
+     "it": "Solo i messaggi arrivati come notifica su questo telefono. Se avevi già letto un messaggio prima che venisse cancellato, o la chat è silenziata, non c’era nessuna notifica da conservare.",
+     "fr": "Seulement les messages arrivés sous forme de notification sur ce téléphone. Si vous aviez déjà lu un message avant sa suppression, ou si la discussion est en sourdine, il n’y avait aucune notification à garder."
+    }
+   },
+   {
+    "q": {
+     "en": "Does anything leave my phone?",
+     "de": "Verlässt etwas mein Handy?",
+     "es": "¿Sale algo de mi móvil?",
+     "it": "Esce qualcosa dal mio telefono?",
+     "fr": "Quelque chose quitte-t-il mon téléphone ?"
+    },
+    "a": {
+     "en": "No messages, ever. The only network access is the optional update check: switched on, it reads the newest version number from this page once a day — without any identifier. Switched off, the app makes no network request at all.",
+     "de": "Keine Nachricht, nie. Der einzige Netzzugriff ist die optionale Update-Prüfung: eingeschaltet liest sie einmal am Tag die neueste Versionsnummer von dieser Seite — ohne jede Kennung. Ausgeschaltet macht die App überhaupt keine Netzwerkanfrage.",
+     "es": "Ningún mensaje, nunca. El único acceso a la red es la comprobación de actualizaciones opcional: activada, lee una vez al día el número de la última versión desde esta página, sin ningún identificador. Desactivada, la app no hace ninguna petición de red.",
+     "it": "Nessun messaggio, mai. L’unico accesso alla rete è il controllo aggiornamenti opzionale: se attivo, legge una volta al giorno il numero dell’ultima versione da questa pagina, senza alcun identificativo. Se disattivato, l’app non fa alcuna richiesta di rete.",
+     "fr": "Aucun message, jamais. Le seul accès réseau est la vérification facultative des mises à jour : activée, elle lit une fois par jour le numéro de la dernière version sur cette page, sans aucun identifiant. Désactivée, l’app ne fait aucune requête réseau."
+    }
+   },
+   {
+    "q": {
+     "en": "Which phones does it run on?",
+     "de": "Auf welchen Handys läuft sie?",
+     "es": "¿En qué móviles funciona?",
+     "it": "Su quali telefoni funziona?",
+     "fr": "Sur quels téléphones fonctionne-t-elle ?"
+    },
+    "a": {
+     "en": "Android 8.0 or later. On Samsung and other phones with aggressive battery savers, exempt the app from battery optimization so the system does not stop it.",
+     "de": "Android 8.0 oder neuer. Auf Samsung und anderen Handys mit strengem Energiesparen die App von der Akku-Optimierung ausnehmen, damit das System sie nicht anhält.",
+     "es": "Android 8.0 o posterior. En Samsung y otros móviles con ahorro de batería agresivo, excluye la app de la optimización de batería para que el sistema no la detenga.",
+     "it": "Android 8.0 o successivo. Su Samsung e altri telefoni con risparmio energetico aggressivo, escludi l’app dall’ottimizzazione della batteria perché il sistema non la fermi.",
+     "fr": "Android 8.0 ou plus récent. Sur Samsung et d’autres téléphones à économie d’énergie agressive, exemptez l’app de l’optimisation de la batterie pour que le système ne l’arrête pas."
+    }
+   },
+   {
+    "q": {
+     "en": "How do I update?",
+     "de": "Wie aktualisiere ich?",
+     "es": "¿Cómo actualizo?",
+     "it": "Come aggiorno?",
+     "fr": "Comment mettre à jour ?"
+    },
+    "a": {
+     "en": "Switch on <em>Nach Updates suchen</em> in Settings: the app then looks once a day for a new release and notifies you. Download the APK from this page and install it over the existing app; your archive and settings stay.",
+     "de": "Schalte in den Einstellungen <em>Nach Updates suchen</em> ein: Die App schaut dann einmal täglich nach einer neuen Version und benachrichtigt dich. Die APK von dieser Seite laden und über die bestehende App installieren; Archiv und Einstellungen bleiben erhalten.",
+     "es": "Activa <em>Nach Updates suchen</em> en los ajustes: la app buscará una nueva versión una vez al día y te avisará. Descarga la APK desde esta página e instálala sobre la app existente; tu archivo y ajustes se conservan.",
+     "it": "Attiva <em>Nach Updates suchen</em> nelle impostazioni: l’app controllerà una volta al giorno se c’è una nuova versione e ti avviserà. Scarica l’APK da questa pagina e installalo sopra l’app esistente; archivio e impostazioni restano.",
+     "fr": "Activez <em>Nach Updates suchen</em> dans les réglages : l’app cherche alors une nouvelle version une fois par jour et vous prévient. Téléchargez l’APK depuis cette page et installez-le par-dessus l’app existante ; archive et réglages sont conservés."
+    }
+   },
+   {
+    "q": {
+     "en": "Is the file genuine?",
+     "de": "Ist die Datei echt?",
+     "es": "¿El archivo es auténtico?",
+     "it": "Il file è autentico?",
+     "fr": "Le fichier est-il authentique ?"
+    },
+    "a": {
+     "en": "Compare the SHA-256 checksum and the signing certificate shown on this page. Android also refuses to install an update signed with a different key over the app.",
+     "de": "Vergleiche die SHA-256-Prüfsumme und das Signaturzertifikat auf dieser Seite. Android weigert sich außerdem, ein mit einem anderen Schlüssel signiertes Update über die App zu installieren.",
+     "es": "Compara la suma SHA-256 y el certificado de firma que aparecen en esta página. Además, Android se niega a instalar sobre la app una actualización firmada con otra clave.",
+     "it": "Confronta il checksum SHA-256 e il certificato di firma mostrati in questa pagina. Android inoltre rifiuta di installare sopra l’app un aggiornamento firmato con un’altra chiave.",
+     "fr": "Comparez la somme SHA-256 et le certificat de signature affichés sur cette page. Android refuse en outre d’installer par-dessus l’app une mise à jour signée avec une autre clé."
+    }
+   }
+  ],
+  "l.h": {
+   "en": "Use it responsibly",
+   "de": "Verantwortungsvoll nutzen",
+   "es": "Úsala con responsabilidad",
+   "it": "Usala in modo responsabile",
+   "fr": "À utiliser de façon responsable"
+  },
+  "l.p": {
+   "en": "The archive holds messages that other people wrote to you — including ones they chose to take back. Keep them to yourself, and respect that someone who deletes a message may have had a reason.",
+   "de": "Das Archiv enthält Nachrichten, die andere dir geschrieben haben — auch solche, die sie zurücknehmen wollten. Behalte sie für dich und respektiere, dass jemand, der eine Nachricht löscht, einen Grund gehabt haben kann.",
+   "es": "El archivo contiene mensajes que otras personas te escribieron, incluidos los que decidieron retirar. Guárdalos para ti y respeta que quien borra un mensaje puede haber tenido un motivo.",
+   "it": "L’archivio contiene messaggi che altre persone ti hanno scritto, anche quelli che hanno scelto di ritirare. Tienili per te e rispetta il fatto che chi cancella un messaggio può averne avuto un motivo.",
+   "fr": "L’archive contient des messages que d’autres vous ont écrits — y compris ceux qu’ils ont choisi de retirer. Gardez-les pour vous et respectez le fait que quelqu’un qui supprime un message peut avoir eu une raison."
+  },
+  "agent_queries": [
+   "Download the latest Kleene Petze APK",
+   "Which version of Kleene Petze is current?",
+   "How do I verify the Kleene Petze APK signature?",
+   "Android app that keeps deleted WhatsApp messages readable"
+  ],
+  "tags": [
+   "android",
+   "whatsapp",
+   "notification-archive",
+   "privacy",
+   "open-source",
+   "apk"
+  ],
+  "skill_description": "Download, verify and install the newest Kleene Petze APK — the free, open-source Android app that keeps message notifications in an encrypted on-device archive so deleted WhatsApp messages stay readable. Use when someone asks for the app, its latest version, a download link, or how to check the APK is genuine."
+ }
+}

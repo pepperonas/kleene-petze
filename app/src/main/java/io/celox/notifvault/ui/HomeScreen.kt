@@ -1,5 +1,17 @@
 package io.celox.notifvault.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material3.LargeFlexibleTopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import io.celox.notifvault.ui.theme.springEntrance
+import io.celox.notifvault.update.UpdateCheckStore
+import io.celox.notifvault.update.UpdateChecker
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -80,10 +92,20 @@ fun HomeScreen(
     // Per-app filter ("" = all); only offered once more than one app has conversations.
     var appFilter by rememberSaveable { mutableStateOf("") }
 
+    // The update hint lives in SharedPreferences (the worker writes it); follow it live.
+    val updateTick by UpdateCheckStore.changes(context).collectAsStateWithLifecycle(initialValue = -1)
+    val newerVersion = remember(updateTick) { UpdateChecker.bannerVersion(context) }
+
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
-            TopAppBar(
+            LargeFlexibleTopAppBar(
                 title = { Text("Kleene Petze") },
+                subtitle = {
+                    Text(if (total == 1) "1 Nachricht gesichert" else "$total Nachrichten gesichert")
+                },
+                scrollBehavior = scrollBehavior,
                 actions = {
                     IconButton(onClick = onOpenFlagged) {
                         Icon(Icons.Default.History, "Aufgedeckt")
@@ -112,6 +134,19 @@ fun HomeScreen(
                     error = true,
                     actionLabel = "Neu verbinden",
                     onAction = { ListenerWatchdog.requestRebind(context) }
+                )
+            }
+
+            AnimatedVisibility(
+                visible = newerVersion != null,
+                enter = expandVertically(Motion.spatial()) + fadeIn(Motion.effects()),
+                exit = shrinkVertically(Motion.spatial()) + fadeOut(Motion.effects())
+            ) {
+                CaptureBanner(
+                    text = "Kleene Petze ${newerVersion.orEmpty()} ist verfügbar.",
+                    error = false,
+                    actionLabel = "Laden",
+                    onAction = { UpdateChecker.openDownload(context) }
                 )
             }
 
@@ -161,7 +196,7 @@ fun HomeScreen(
                 else -> LazyColumn(Modifier.fillMaxSize()) {
                     // Space separator keeps the composed key unambiguous (package names
                     // contain no spaces; bare concatenation could collide).
-                    items(shown, key = { "${it.conversationKey} ${it.packageName}" }) { c ->
+                    itemsIndexed(shown, key = { _, it -> "${it.conversationKey} ${it.packageName}" }) { i, c ->
                         // Spring placement so a chat springing to the top on a new message
                         // (and rows above sliding down) reads as physical, not a hard cut.
                         Column(
@@ -169,7 +204,7 @@ fun HomeScreen(
                                 fadeInSpec = Motion.effects(),
                                 placementSpec = Motion.spatial(),
                                 fadeOutSpec = Motion.effects()
-                            )
+                            ).springEntrance(i)
                         ) {
                             ConversationRow(c) { onOpenConversation(c.conversationKey, c.packageName) }
                             HorizontalDivider(

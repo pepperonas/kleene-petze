@@ -73,4 +73,21 @@ class WatchdogPolicyTest {
         // overdue threshold above mean something different than it reads.
         org.junit.Assert.assertEquals(15 * 60 * 1000L, WatchdogPolicy.INTERVAL_MS)
     }
+
+    @Test
+    fun `a pending job with the current parameters is kept`() {
+        assertFalse(WatchdogPolicy.needsReschedule(WatchdogPolicy.INTERVAL_MS, pendingPersisted = true))
+    }
+
+    @Test
+    fun `a pending job from an older release is replaced`() {
+        assertTrue(WatchdogPolicy.needsReschedule(30 * 60 * 1000L, pendingPersisted = true))
+        assertTrue(WatchdogPolicy.needsReschedule(WatchdogPolicy.INTERVAL_MS, pendingPersisted = false))
+    }
+
+    @Test
+    fun `WorkManager's job ids can never collide with the watchdog`() {
+        assertFalse(WatchdogPolicy.JOB_ID in WatchdogPolicy.WORK_MANAGER_MIN_ID..WatchdogPolicy.WORK_MANAGER_MAX_ID)
+        assertTrue(WatchdogPolicy.WORK_MANAGER_MIN_ID < WatchdogPolicy.WORK_MANAGER_MAX_ID)
+    }
 }

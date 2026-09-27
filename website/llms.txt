@@ -1,0 +1,55 @@
+# Kleene Petze
+
+> Kleene Petze is a free, open-source (MIT) Android app for Android 8.0 and later that saves incoming message notifications permanently and encrypted on the device — like Android's notification history, but without the 24-hour expiry. Because WhatsApp posts no notification when a message is deleted, the copy captured on arrival survives: messages the sender deletes while they are still unread stay readable and are marked as deleted, and earlier versions of edited messages are kept too. It works for WhatsApp, WhatsApp Business, Signal, Telegram, Instagram, Messenger and Google Messages, or for every app. Messages are grouped into chats, searchable, and can be exported and imported as an encrypted file, JSON or CSV. The database is encrypted with SQLCipher (AES-256), an optional biometric lock protects the app, and nothing leaves the phone; the only network access is an update check that is off unless you switch it on. Distributed as a signed APK through GitHub Releases.
+
+Everything below is also available without JavaScript: the page's HTML carries the current version and checksums, and `/` returns Markdown for `Accept: text/markdown`.
+
+## Get the app
+
+- [Newest release](https://kleene-petze.celox.io/download): the file for your platform — 302 to the newest file, a verified copy served from this site (resumable)
+- [APK](https://kleene-petze.celox.io/download/android): Android 8.0+
+- [Newest release as JSON](https://kleene-petze.celox.io/latest.json): `version`, `published`, `notes`, and `assets[]` with `target`, `name`, `url`, `size` (bytes), `sha256`; refreshed every 15 minutes
+- [All releases and notes](https://github.com/pepperonas/kleene-petze/releases)
+
+## Docs
+
+- [Product page as Markdown](https://kleene-petze.celox.io/index.md): features, install steps, verification, FAQ, with the current version and checksums filled in
+- [Agent skill: get Kleene Petze](https://kleene-petze.celox.io/skills/get-kleene-petze/SKILL.md): download, verify and install, step by step
+- [Changelog](https://kleene-petze.celox.io/changelog.md): Markdown, mirrored from GitHub every 15 minutes
+- [README](https://github.com/pepperonas/kleene-petze#readme)
+
+## Install
+
+1. One file for every phone with Android 8.0 or later — there is nothing to pick.
+2. Open the file. Android asks once whether your browser may install apps — allow it.
+3. The first screen takes you there. Also exempt the app from battery optimization — Samsung in particular stops background services otherwise.
+
+## Verify
+
+- SHA-256 of every file: `assets[].sha256` in [latest.json](https://kleene-petze.celox.io/latest.json)
+- Signing certificate SHA-256: `0560befbf32c64ede5a518a18bf6799c44f85b45853e97723914d4a84aafe379`
+
+## Features
+
+- Deleted stays readable: WhatsApp posts no notification when a message is deleted, so the copy saved on arrival survives. It is marked *deleted* in the chat.
+- Edits uncovered: When a message is edited, the earlier version stays in the archive, marked *edited*. The *Uncovered* view lists everything deleted or edited across all chats.
+- Encrypted, on your phone: SQLCipher with AES-256, the key in the Android Keystore, backups disabled. An optional biometric lock also hides the app from the recent-apps preview.
+- Chats, search, pictures: Messages are sorted into chats like in the messenger, with full-text search. The preview picture a notification carries can be kept too.
+- Export and import: The whole archive as an encrypted file, JSON or CSV — and back. An import only adds: nothing is overwritten, the same file twice changes nothing.
+- Keeps listening: Android silently disconnects notification listeners after reboots, updates and battery savers. Kleene Petze reconnects by itself and shows its status in Settings.
+
+## Scope and limits
+
+- Android only; not on Google Play — distributed as an APK through GitHub Releases.
+- Only messages that arrive as a notification on this phone are saved: muted chats and messages you receive while the chat is open often post none.
+- A message deleted after you have already read it cannot be recovered — there is no notification left to keep.
+- Voice messages, videos and original files are never part of a notification; pictures are kept only as the smaller preview.
+- The user interface is German.
+- It does not download or install updates by itself — it only tells you, and you install the new APK over the old one.
+
+## Optional
+
+- [Source code](https://github.com/pepperonas/kleene-petze)
+- [Licence (MIT)](https://github.com/pepperonas/kleene-petze/blob/main/LICENSE)
+- [Agent resource catalog](https://kleene-petze.celox.io/.well-known/ai-catalog.json)
+- [Author: Martin Pfeffer, celox.io](https://celox.io)

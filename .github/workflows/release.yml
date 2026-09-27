@@ -50,6 +50,14 @@ jobs:
           fi
           echo "name=$NAME" >> "$GITHUB_OUTPUT"
 
+      - name: Unit tests
+        run: ./gradlew :app:testDebugUnitTest --no-daemon
+
+      # The release page carries the CHANGELOG section of this version; a tag without one fails
+      # here instead of publishing an empty page.
+      - name: Release notes
+        run: scripts/release-notes.sh "${{ steps.ver.outputs.name }}" > RELEASE_NOTES.md
+
       - name: Decode keystore
         run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > release.jks
 
@@ -65,15 +73,25 @@ jobs:
         run: |
           cp app/build/outputs/apk/release/app-release.apk \
              "kleene-petze-${{ steps.ver.outputs.name }}.apk"
+          sha256sum "kleene-petze-${{ steps.ver.outputs.name }}.apk" | tee SHA256SUMS.txt
+          APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          "$APKSIGNER" verify --print-certs "kleene-petze-${{ steps.ver.outputs.name }}.apk" | tee -a "$GITHUB_STEP_SUMMARY" | tee certs.txt
+          # Every release is signed with the same key — the product page publishes this digest,
+          # and Android refuses an update signed differently. Never publish anything else.
+          grep -q "SHA-256 digest: 0560befbf32c64ede5a518a18bf6799c44f85b45853e97723914d4a84aafe379" certs.txt \
+            || { echo "Unexpected signing certificate" >&2; exit 1; }
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.ver.outputs.name }}
           name: Kleene Petze ${{ steps.ver.outputs.name }}
+          body_path: RELEASE_NOTES.md
           generate_release_notes: true
           fail_on_unmatched_files: true
-          files: kleene-petze-${{ steps.ver.outputs.name }}.apk
+          files: |
+            kleene-petze-${{ steps.ver.outputs.name }}.apk
+            SHA256SUMS.txt
 
       - name: Clean up keystore
         if: always()

@@ -108,7 +108,10 @@ class NotificationCaptureService : NotificationListenerService() {
         // Pictures, decoded right here: a notification listener may read the image Uri only
         // while the notification is live, so this cannot be deferred to a worker.
         if (result.images.isNotEmpty() && captureImages.filterNotNull().first()) {
-            val stored = result.images.mapNotNull { pending ->
+            // WhatsApp re-posts its whole history with every new message; skip the pictures that
+            // are already stored instead of decoding and re-compressing them all again.
+            val have = dao.existingAttachmentIds(result.images.map { it.message.id }).toHashSet()
+            val stored = result.images.filter { it.message.id !in have }.mapNotNull { pending ->
                 NotificationImages.encode(applicationContext, pending.source)?.let { image ->
                     CapturedAttachment(
                         messageId = pending.message.id,

@@ -3,11 +3,18 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <!-- Read every notification on this device (granted by user in system settings).
-         Intentionally minimal: no INTERNET, and nothing the app does not actually use.
-         The app posts no notifications, so no POST_NOTIFICATIONS.
+         Intentionally minimal: nothing the app does not actually use.
          RECEIVE_BOOT_COMPLETED is what makes capture survive: the system does NOT reliably
          re-bind the listener after a reboot or an in-place app update, and it also lets the
-         watchdog job be persisted (JobInfo.setPersisted requires this permission). -->
+         watchdog job be persisted (JobInfo.setPersisted requires this permission).
+
+         INTERNET is used by exactly one thing: the opt-in update check (Settings → Updates,
+         OFF by default), which fetches kleene-petze.celox.io/latest.json once a day. Without the
+         opt-in no work is enqueued, so the app makes no network request at all. Captured
+         messages never leave the device — there is no code path that sends them anywhere.
+         POST_NOTIFICATIONS is requested only when that check is switched on. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
         tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
@@ -20,6 +27,7 @@
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="false"
         android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/Theme.NotifVault"
@@ -73,6 +81,19 @@
             <meta-data
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
+        </provider>
+
+        <!-- WorkManager is configured by NotifVaultApp (Configuration.Provider: job-id range kept
+             clear of the watchdog), so its default auto-initializer must not run first. -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup"
+                tools:node="remove" />
         </provider>
 
     </application>

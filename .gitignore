@@ -16,3 +16,6 @@ keystore.properties
 
 # Kotlin compiler artifacts
 .kotlin/
+
+# Browser-check screenshots (Playwright MCP)
+.playwright-mcp/

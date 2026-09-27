@@ -45,12 +45,18 @@ object ListenerWatchdog {
      * `setPersisted` makes the job survive a reboot on its own, so capture recovers even when the
      * boot broadcast is delayed or dropped — the two mechanisms deliberately overlap.
      *
-     * An already-pending job is left untouched: re-scheduling restarts the period, so calling
-     * this on every app start would mean a frequently-opened app never reaches its own watchdog.
+     * An already-pending job with the current parameters is left untouched: re-scheduling
+     * restarts the period, so calling this on every app start would mean a frequently-opened app
+     * never reaches its own watchdog.
      */
     fun schedule(context: Context) {
         val scheduler = context.getSystemService(JobScheduler::class.java) ?: return
-        if (runCatching { scheduler.getPendingJob(WatchdogPolicy.JOB_ID) }.getOrNull() != null) return
+        val pending = runCatching { scheduler.getPendingJob(WatchdogPolicy.JOB_ID) }.getOrNull()
+        // A job persisted by an older release keeps its old parameters forever unless it is
+        // replaced — so an unchanged job is left alone, a changed one is scheduled anew.
+        if (pending != null &&
+            !WatchdogPolicy.needsReschedule(pending.intervalMillis, pending.isPersisted)
+        ) return
         // build() throws when setPersisted is used without RECEIVE_BOOT_COMPLETED, and schedule()
         // can fail on OEMs with their own job quotas — neither is worth taking the app down for.
         runCatching {

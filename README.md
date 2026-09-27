@@ -26,14 +26,14 @@
   <img alt="Platform" src="https://img.shields.io/badge/platform-Android-3DDC84?logo=android&logoColor=white">
   <img alt="minSdk" src="https://img.shields.io/badge/minSdk-26%20(Android%208.0)-3DDC84?logo=android&logoColor=white">
   <img alt="targetSdk" src="https://img.shields.io/badge/targetSdk-35-3DDC84?logo=android&logoColor=white">
-  <img alt="Kotlin" src="https://img.shields.io/badge/Kotlin-2.0.21-7F52FF?logo=kotlin&logoColor=white">
-  <img alt="Jetpack Compose" src="https://img.shields.io/badge/Jetpack%20Compose-BOM%202024.10-4285F4?logo=jetpackcompose&logoColor=white">
+  <img alt="Kotlin" src="https://img.shields.io/badge/Kotlin-2.1.0-7F52FF?logo=kotlin&logoColor=white">
+  <img alt="Jetpack Compose" src="https://img.shields.io/badge/Jetpack%20Compose-BOM%202026.06-4285F4?logo=jetpackcompose&logoColor=white">
   <img alt="Material 3" src="https://img.shields.io/badge/Material%203-Expressive-757575?logo=materialdesign&logoColor=white">
 </p>
 <p align="center">
   <img alt="Gradle" src="https://img.shields.io/badge/Gradle-8.11.1-02303A?logo=gradle&logoColor=white">
-  <img alt="AGP" src="https://img.shields.io/badge/AGP-8.7.2-3DDC84?logo=android&logoColor=white">
-  <img alt="KSP" src="https://img.shields.io/badge/KSP-2.0.21--1.0.28-7F52FF?logo=kotlin&logoColor=white">
+  <img alt="AGP" src="https://img.shields.io/badge/AGP-8.7.3-3DDC84?logo=android&logoColor=white">
+  <img alt="KSP" src="https://img.shields.io/badge/KSP-2.1.0--1.0.29-7F52FF?logo=kotlin&logoColor=white">
   <img alt="JDK" src="https://img.shields.io/badge/JDK-17-007396?logo=openjdk&logoColor=white">
   <img alt="Coroutines" src="https://img.shields.io/badge/Coroutines-1.9.0-7F52FF?logo=kotlin&logoColor=white">
 </p>
@@ -45,8 +45,8 @@
   <img alt="Encryption" src="https://img.shields.io/badge/encryption-AES--256-success?logo=letsencrypt&logoColor=white">
   <img alt="Biometric lock" src="https://img.shields.io/badge/lock-Biometric-blueviolet">
   <img alt="On-device" src="https://img.shields.io/badge/data-100%25%20on--device-14B8A6">
-  <img alt="No network" src="https://img.shields.io/badge/network-none-critical">
-  <img alt="License" src="https://img.shields.io/badge/license-Proprietary-lightgrey">
+  <img alt="Network" src="https://img.shields.io/badge/network-opt--in%20update%20check%20only-critical">
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-14B8A6"></a>
   <img alt="Made by celox.io" src="https://img.shields.io/badge/made%20by-celox.io-0D9488">
 </p>
 
@@ -57,8 +57,25 @@ verschlüsselte Datenbank geschrieben wird, sobald sie ankommt.
 
 ## Download
 
-Die fertige, signierte APK gibt es unter **[Releases](https://github.com/pepperonas/kleene-petze/releases/latest)**.
+Die fertige, signierte APK gibt es auf **[kleene-petze.celox.io](https://kleene-petze.celox.io)**
+und unter **[Releases](https://github.com/pepperonas/kleene-petze/releases/latest)**.
 APK herunterladen → auf dem Gerät öffnen → Installation aus unbekannter Quelle erlauben.
+
+Neue Versionen meldet die App auf Wunsch selbst: *Einstellungen → Updates → Nach Updates suchen*
+(standardmäßig aus, siehe [Datenschutz](#datenschutz--dsgvo)). Was sich geändert hat, steht im
+[CHANGELOG](CHANGELOG.md).
+
+## Neu in 1.10.0
+
+- **Material 3 Expressive** – `MaterialExpressiveTheme` mit federbasiertem `MotionScheme`: große
+  flexible Kopfzeilen, Einstellungen als Karten mit gestaffeltem Einfedern, Bildschirmübergänge,
+  federnde Druck-Rückmeldung, `LoadingIndicator`, verbundene Button-Gruppe für Hell/Dunkel/System.
+  „Animationen entfernen“ wird respektiert.
+- **Über die App** – Version, Website, Quelltext, Änderungen, Lizenz und ein PayPal-Spendenknopf.
+- **Optionale Update-Prüfung** – aus, bis du sie einschaltest.
+- **Sperre repariert** – mit aktiver App-Sperre gingen Export und Import verloren; jetzt bleibt die
+  Oberfläche unter der Sperre erhalten, die App-Übersicht zeigt keine Inhalte (`FLAG_SECURE`).
+- Details und alle weiteren Korrekturen: [CHANGELOG](CHANGELOG.md).
 
 ## Wie es funktioniert
 
@@ -233,7 +250,7 @@ Reine JVM-Unit-Tests (kein Emulator nötig):
 ./gradlew testDebugUnitTest
 ```
 
-Aktuell **182 Tests**, alle ohne Android-Framework (die kritische Logik liegt bewusst in
+Aktuell **215 Tests**, alle ohne Android-Framework (die kritische Logik liegt bewusst in
 frameworkfreien Modulen). Abgedeckt:
 
 - **Dedup-Schlüssel** – `messageContentId` mit fixem SHA-256-Anker (`MessageId`)
@@ -258,6 +275,14 @@ frameworkfreien Modulen). Abgedeckt:
 - **Aufbewahrung** – wann geprunt wird und ab welchem Stichtag (`RetentionPolicy`)
 - **Formatierung** – Datum/Zeit, relative „letzte Erfassung", Farben/Initialen (`Format`)
 - **Suche** – LIKE-Escaping und Highlight-Ranges (`SearchUtils`)
+- **App-Sperre** – nur dauerhaft fehlende Sperre überspringt die Abfrage (`LockPolicy`)
+- **Update-Prüfung** – Versionsvergleich, einmal pro Version melden, ohne Opt-in kein Job,
+  Produktseite vor GitHub (`AppVersion`, `UpdatePolicy`, `ReleaseSource`)
+- **Über/Spenden-Links** – PayPal-Link, Produktseite, Lizenz (`AboutLinks`)
+- **Bewegung** – Aufstieg/Staffelung der Übergänge (`ScreenMotion`)
+- **Changelog** – jede Version hat einen datierten Abschnitt (`ChangelogTest`)
+- **Export unter Last** – eintreffende/gelöschte Nachrichten während des Exports, abgebrochener
+  Export ergibt nie eine gültige verschlüsselte Datei (`VaultTransfer`)
 
 ## Einrichtung auf dem Samsung S24 Ultra (wichtig)
 
@@ -271,7 +296,13 @@ One UI killt Hintergrunddienste sehr aggressiv. Damit kein Mitschnitt verloren g
 
 ## Datenschutz / DSGVO
 
-- Keine Netzwerkberechtigung, keine Cloud, kein Tracking. Alles bleibt auf dem Gerät.
+- Keine Cloud, kein Tracking. Erfasste Nachrichten verlassen das Gerät nie — es gibt keinen
+  Code-Pfad, der sie irgendwohin sendet.
+- Die Berechtigung `INTERNET` nutzt seit 1.10.0 genau eine Funktion: die **optionale
+  Update-Prüfung**, standardmäßig **aus**. Eingeschaltet fragt die App einmal am Tag
+  `kleene-petze.celox.io/latest.json` (Fallback: GitHub-API) nach der neuesten Versionsnummer —
+  ohne Kennung, ohne Gerätedaten. Ausgeschaltet wird kein Hintergrundjob angelegt, die App macht
+  dann keine einzige Netzwerkanfrage (per Test abgesichert: `UpdatePolicyTest`).
 - Datenbank verschlüsselt (SQLCipher, 256-bit). Schlüssel in `EncryptedSharedPreferences`
   (AES-256-GCM, Android Keystore). Backups (Cloud/Geräte­transfer) sind deaktiviert.
 - Erfasst werden nur Benachrichtigungen, die **auf diesem Gerät** eingehen – also
@@ -296,7 +327,13 @@ service/ NotificationCaptureService – der Listener (Edit-Erkennung, Heartbeat,
          BootReceiver – Neubindung nach Neustart und nach App-Update
          WatchdogPolicy – die Entscheidungen dazu, frameworkfrei und getestet
 ui/      Compose-Screens (Onboarding, Home, Conversation, Flagged/„Aufgedeckt", Settings)
-         + ViewModel, Components (Avatar), Format (Datum/Zeit, Farben, Initialen)
+         + ViewModel (inkl. Export/Import-Zustand, Sperr-Sitzung), Components (Avatar),
+         Format (Datum/Zeit, Farben, Initialen)
+ui/about AboutLinks (Website, Quelltext, Lizenz, PayPal), About-/Update-/Erscheinungsbild-Karten
+ui/theme MaterialExpressiveTheme, Farben, Motion (MotionScheme-Tokens, springPressed,
+         springEntrance, ScreenTransitions)
+update/  Opt-in-Update-Prüfung: AppVersion, UpdatePolicy (frameworkfrei), ReleaseSource,
+         UpdateCheckStore, UpdateChecker (Benachrichtigung), UpdateScheduler (WorkManager)
 util/    PermissionUtils, ExportNaming, SearchUtils, ShareExport (Teilen pro Chat)
          VaultFormat  – Formaterkennung (verschlüsselt / JSON / CSV)
          VaultJson    – Klartextformat, eine Nachricht pro Zeile (streambar)
@@ -319,13 +356,21 @@ Releases werden signiert und automatisch von GitHub Actions gebaut
 `KEY_ALIAS`, `KEY_PASSWORD`) – nie in diesem Repo.
 
 ```bash
-# versionCode (+1) und versionName in app/build.gradle.kts erhöhen, dann:
+# versionCode (+1) und versionName in app/build.gradle.kts erhöhen,
+# Abschnitt "## [1.2.3] - JJJJ-MM-TT" in CHANGELOG.md schreiben (ChangelogTest prüft das), dann:
 git tag v1.2.3 && git push origin v1.2.3
 ```
 
-Der Workflow baut die signierte APK und hängt sie an einen neuen GitHub Release. Alle
+Der Workflow führt die Tests aus, baut die signierte APK und hängt sie samt `SHA256SUMS.txt` an
+einen neuen GitHub Release; die Release-Notizen kommen aus dem CHANGELOG
+(`scripts/release-notes.sh`). Die Produktseite spiegelt den Release binnen 15 Minuten. Alle
 Releases sind mit demselben Keystore signiert und damit als Update übereinander
 installierbar.
 
+## Lizenz & Unterstützung
+
+[MIT](LICENSE) © 2026 Martin Pfeffer. Kleene Petze ist kostenlos und ohne Werbung — wenn sie dir
+etwas gerettet hat: [Spenden per PayPal](https://www.paypal.com/donate/?business=martin.pfeffer@celox.io&currency_code=EUR&item_name=Kleene%20Petze).
+
 ---
-© 2026 Martin Pfeffer | celox.io
+© 2026 Martin Pfeffer | [celox.io](https://celox.io) · [kleene-petze.celox.io](https://kleene-petze.celox.io)

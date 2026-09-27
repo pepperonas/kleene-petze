@@ -62,36 +62,41 @@ object VaultTransfer {
         }
 
         var written = 0
-        writer.buffered().use { w ->
-            val human = humanFmt()
-            when (format) {
-                VaultFormat.ENCRYPTED -> w.write(VaultCodec.HEADER_LINE)
-                VaultFormat.JSON -> w.write(VaultJson.header(total, isoNow()))
-                VaultFormat.CSV -> w.write(VaultCsv.HEADER)
-            }
-            eachChunk(dao) { m ->
-                when (format) {
-                    VaultFormat.ENCRYPTED -> w.write(VaultCodec.row(m))
-                    VaultFormat.JSON -> w.write(VaultJson.record(m, first = written == 0))
-                    VaultFormat.CSV -> w.write(
-                        VaultCsv.row(m, human.format(Date(m.messageTime)), human.format(Date(m.capturedAt)))
-                    )
-                }
-                written++
-            }
-            if (format == VaultFormat.JSON) w.write(VaultJson.footer())
+        val w = writer.buffered()
+        // Deliberately not `use {}`: closing finishes the stream — for the encrypted format that
+        // writes the GZIP trailer and the GCM tag, i.e. it turns a half-written archive into a
+        // perfectly valid, authenticated file that simply lacks messages. On failure (or
+        // cancellation) the writer is abandoned unfinished; the caller closes the raw stream and
+        // deletes the file.
+        val human = humanFmt()
+        when (format) {
+            VaultFormat.ENCRYPTED -> w.write(VaultCodec.HEADER_LINE)
+            VaultFormat.JSON -> w.write(VaultJson.header(total, isoNow()))
+            VaultFormat.CSV -> w.write(VaultCsv.HEADER)
         }
+        eachChunk(dao) { m ->
+            when (format) {
+                VaultFormat.ENCRYPTED -> w.write(VaultCodec.row(m))
+                VaultFormat.JSON -> w.write(VaultJson.record(m, first = written == 0))
+                VaultFormat.CSV -> w.write(
+                    VaultCsv.row(m, human.format(Date(m.messageTime)), human.format(Date(m.capturedAt)))
+                )
+            }
+            written++
+        }
+        if (format == VaultFormat.JSON) w.write(VaultJson.footer())
+        w.close()
         return written
     }
 
     private suspend fun eachChunk(dao: MessageDao, onMessage: (CapturedMessage) -> Unit) {
-        var offset = 0
+        var after = ""
         while (true) {
-            val chunk = dao.exportChunk(CHUNK, offset)
+            val chunk = dao.exportChunk(CHUNK, after)
             if (chunk.isEmpty()) return
             chunk.forEach(onMessage)
             if (chunk.size < CHUNK) return
-            offset += chunk.size
+            after = chunk.last().id
         }
     }
 

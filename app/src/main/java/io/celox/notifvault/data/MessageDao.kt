@@ -76,9 +76,16 @@ interface MessageDao {
 
     // Streaming export reads the archive in blocks instead of materialising all of it: the old
     // path held the full list, the serialised string, the gzip buffer and the ciphertext at the
-    // same time. Ordered by the primary key so paging stays stable while rows keep arriving.
-    @Query("SELECT * FROM messages ORDER BY id LIMIT :limit OFFSET :offset")
-    suspend fun exportChunk(limit: Int, offset: Int): List<CapturedMessage>
+    // same time. Keyset paging ("everything after the last id seen"), not LIMIT/OFFSET: ids are
+    // content hashes, so a message captured mid-export lands at a random position — with an
+    // offset it shifted every later page by one and a row was exported twice, and a concurrent
+    // delete (retention, noise cleanup) made one silently disappear. Pass "" for the first page.
+    @Query("SELECT * FROM messages WHERE id > :afterId ORDER BY id LIMIT :limit")
+    suspend fun exportChunk(limit: Int, afterId: String): List<CapturedMessage>
+
+    /** One-shot count (the Flow above only has a value while something collects it). */
+    @Query("SELECT COUNT(*) FROM messages")
+    suspend fun countNow(): Int
 
     @Query("SELECT COUNT(*) FROM messages")
     fun count(): Flow<Int>
@@ -147,10 +154,11 @@ interface MessageDao {
 
     // ---- Attachments (images pulled out of notifications) ----------------------------------
     //
-    // Deletions are always paired explicitly with the matching message delete rather than left
-    // to the foreign key: ON DELETE CASCADE only fires while SQLite has `PRAGMA foreign_keys`
-    // enabled, and orphaned blobs would be invisible — they show up as storage that never
-    // shrinks. Attachments go first, messages second.
+    // Deletions are always paired explicitly with the matching message delete. Room does turn
+    // `PRAGMA foreign_keys` on for this database (an entity declares a foreign key), so the
+    // cascade would fire today — the explicit delete is belt and braces: orphaned blobs would be
+    // invisible, showing up only as storage that never shrinks, and nothing here should depend on
+    // a pragma someone might switch off. Attachments go first, messages second.
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertAttachments(items: List<CapturedAttachment>)
@@ -160,6 +168,14 @@ interface MessageDao {
         "SELECT messageId FROM attachments WHERE conversationKey = :conversationKey AND packageName = :pkg"
     )
     fun attachmentIdsFor(conversationKey: String, pkg: String): Flow<List<String>>
+
+    /**
+     * Which of [ids] already have a stored picture. WhatsApp re-posts its whole message history
+     * with every new message; without this check every re-post decoded and re-compressed every
+     * picture again, only for the insert to throw the result away.
+     */
+    @Query("SELECT messageId FROM attachments WHERE messageId IN (:ids)")
+    suspend fun existingAttachmentIds(ids: List<String>): List<String>
 
     @Query("SELECT * FROM attachments WHERE messageId = :messageId")
     suspend fun attachment(messageId: String): CapturedAttachment?

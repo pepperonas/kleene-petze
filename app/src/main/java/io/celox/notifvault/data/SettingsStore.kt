@@ -5,9 +5,11 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
+import io.celox.notifvault.ui.theme.ThemeMode
 import kotlinx.coroutines.flow.map
 
 private val Context.dataStore by preferencesDataStore(name = "nv_settings")
@@ -24,6 +26,8 @@ class SettingsStore(private val context: Context) {
     private val captureImagesKey = booleanPreferencesKey("capture_images")
     private val autoStartKey = booleanPreferencesKey("auto_start_on_boot")
     private val lastWatchdogKey = longPreferencesKey("last_watchdog_at")
+    private val themeModeKey = stringPreferencesKey("theme_mode")
+    private val dynamicColorKey = booleanPreferencesKey("dynamic_color")
 
     val monitoredPackages: Flow<Set<String>> = context.dataStore.data
         .map { it[pkgKey] ?: DEFAULT_PACKAGES }
@@ -71,6 +75,22 @@ class SettingsStore(private val context: Context) {
     /** When the watchdog job last ran (0 = never) — the app's proof that it still runs at all. */
     val lastWatchdogAt: Flow<Long> = context.dataStore.data
         .map { it[lastWatchdogKey] ?: 0L }
+
+    /** Light/dark choice (System follows the phone). Stored by enum name; unknown → System. */
+    val themeMode: Flow<ThemeMode> = context.dataStore.data
+        .map { p -> ThemeMode.entries.firstOrNull { it.name == p[themeModeKey] } ?: ThemeMode.SYSTEM }
+
+    /** Material You wallpaper colors instead of the teal brand scheme (Android 12+). Opt-in. */
+    val dynamicColor: Flow<Boolean> = context.dataStore.data
+        .map { it[dynamicColorKey] ?: false }
+
+    suspend fun setThemeMode(mode: ThemeMode) {
+        context.dataStore.edit { it[themeModeKey] = mode.name }
+    }
+
+    suspend fun setDynamicColor(value: Boolean) {
+        context.dataStore.edit { it[dynamicColorKey] = value }
+    }
 
     suspend fun setMonitored(packages: Set<String>) {
         context.dataStore.edit { it[pkgKey] = packages }

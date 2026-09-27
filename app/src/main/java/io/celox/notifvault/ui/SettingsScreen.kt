@@ -1,6 +1,33 @@
 package io.celox.notifvault.ui
 
 import android.net.Uri
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.outlined.Apps
+import androidx.compose.material.icons.outlined.Favorite
+import androidx.compose.material.icons.outlined.Image
+import androidx.compose.material.icons.outlined.ImportExport
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.MonitorHeart
+import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.RestartAlt
+import androidx.compose.material.icons.outlined.Storage
+import androidx.compose.material.icons.outlined.SystemUpdate
+import androidx.compose.material3.LargeFlexibleTopAppBar
+import androidx.compose.material3.LoadingIndicator
+import androidx.compose.material3.Surface
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.text.style.TextAlign
+import io.celox.notifvault.ui.about.AboutSection
+import io.celox.notifvault.ui.about.AppearanceSection
+import io.celox.notifvault.ui.about.SwitchRow
+import io.celox.notifvault.ui.about.UpdateSection
+import io.celox.notifvault.ui.theme.ThemeMode
+import io.celox.notifvault.ui.theme.springEntrance
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -40,6 +67,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -89,6 +117,8 @@ fun SettingsScreen(vm: VaultViewModel, onBack: () -> Unit) {
     val captureImages by vm.settings.captureImages.collectAsStateWithLifecycle(initialValue = true)
     val imageCount by vm.attachmentCount.collectAsStateWithLifecycle()
     val imageBytes by vm.attachmentBytesTotal.collectAsStateWithLifecycle()
+    val themeMode by vm.settings.themeMode.collectAsStateWithLifecycle(initialValue = ThemeMode.SYSTEM)
+    val dynamicColor by vm.settings.dynamicColor.collectAsStateWithLifecycle(initialValue = false)
     var confirmClear by remember { mutableStateOf(false) }
     var confirmDropImages by remember { mutableStateOf(false) }
     var showRetentionDialog by remember { mutableStateOf(false) }
@@ -110,102 +140,38 @@ fun SettingsScreen(vm: VaultViewModel, onBack: () -> Unit) {
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    // ---- Export / Import state ----
-    var exportFormatDialog by remember { mutableStateOf(false) }
-    var exportFormat by remember { mutableStateOf<VaultFormat?>(null) }
-    var exportPassDialog by remember { mutableStateOf(false) }
-    var exportPass by remember { mutableStateOf("") }
-    var importUri by remember { mutableStateOf<Uri?>(null) }
-    var importFormat by remember { mutableStateOf<VaultFormat?>(null) }
-    var importPassDialog by remember { mutableStateOf(false) }
-    var importPreview by remember {
-        mutableStateOf<Pair<VaultTransfer.Preview, List<CapturedMessage>?>?>(null)
-    }
-    var resultMessage by remember { mutableStateOf<String?>(null) }
-    var busy by remember { mutableStateOf(false) }
-
-    fun openImport(uri: Uri) = context.contentResolver.openInputStream(uri)
-        ?: error("Datei konnte nicht gelesen werden")
+    // ---- Export / Import: state and work live in the ViewModel (see there) ----
+    val transfer by vm.transfer.collectAsStateWithLifecycle()
+    val busy = transfer.busy
+    // Plain dialog visibility survives rotation; the pending export itself sits in the VM.
+    var exportFormatDialog by rememberSaveable { mutableStateOf(false) }
+    var exportPassFor by rememberSaveable { mutableStateOf<VaultFormat?>(null) }
 
     // One creator for every format: the chosen extension travels in the suggested file name,
     // and "*/*" keeps pickers from appending one of their own.
     val exportCreator = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("*/*")
-    ) { uri ->
-        val format = exportFormat
-        val pass = exportPass
-        exportPass = ""
-        if (uri == null || format == null) return@rememberLauncherForActivityResult
-        busy = true
-        scope.launch {
-            resultMessage = runCatching {
-                val out = withContext(Dispatchers.IO) {
-                    context.contentResolver.openOutputStream(uri)
-                        ?: error("Datei konnte nicht geschrieben werden")
-                }
-                out.use { vm.exportTo(it, format, pass.takeIf { p -> p.isNotEmpty() }?.toCharArray()) }
-            }.fold(
-                onSuccess = { n ->
-                    if (format.encrypted)
-                        "$n Nachrichten verschlüsselt exportiert. Passphrase gut aufbewahren — " +
-                            "ohne sie ist die Datei wertlos."
-                    else
-                        "$n Nachrichten als ${format.extension.uppercase()} exportiert. " +
-                            "Die Datei ist unverschlüsselt und im Klartext lesbar."
-                },
-                onFailure = { "Export fehlgeschlagen: ${it.message}" }
-            )
-            busy = false
-        }
-    }
-
-    // Reads the file, works out what it is and summarises it — nothing is written yet.
-    fun prepareImport(uri: Uri, format: VaultFormat, pass: CharArray?) {
-        busy = true
-        scope.launch {
-            runCatching { vm.previewImport(format, { openImport(uri) }, pass) }
-                .fold(
-                    onSuccess = { importPreview = it },
-                    onFailure = { resultMessage = importError(it) }
-                )
-            busy = false
-        }
-    }
+    ) { uri -> vm.onExportTarget(uri) }
 
     val importPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
-    ) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult
-        importUri = uri
-        busy = true
-        scope.launch {
-            val detected = runCatching {
-                withContext(Dispatchers.IO) {
-                    openImport(uri).use { stream ->
-                        VaultFormat.detect(ByteArray(VaultFormat.SNIFF_BYTES).let { buf ->
-                            val n = stream.read(buf)
-                            if (n <= 0) ByteArray(0) else buf.copyOf(n)
-                        })
-                    }
-                }
-            }
-            busy = false
-            detected.fold(
-                onSuccess = { format ->
-                    importFormat = format
-                    // The passphrase is only needed for the encrypted container.
-                    if (format.encrypted) importPassDialog = true
-                    else prepareImport(uri, format, null)
-                },
-                onFailure = { resultMessage = importError(it) }
-            )
-        }
+    ) { uri -> vm.onImportPicked(uri) }
+
+    fun launchExport(format: VaultFormat, pass: String?) {
+        vm.beginExport(format, pass)
+        val date = SimpleDateFormat("yyyy-MM-dd", Locale.GERMANY).format(Date())
+        runCatching { exportCreator.launch(ExportNaming.exportFileName(date, format)) }
+            .onFailure { vm.cancelExport(); vm.showMessage("Kein Dateiauswahl-Dialog verfügbar.") }
     }
 
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
-            TopAppBar(
+            LargeFlexibleTopAppBar(
                 title = { Text("Einstellungen") },
+                subtitle = { Text("Kleene Petze ${BuildConfig.VERSION_NAME}") },
+                scrollBehavior = scrollBehavior,
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Zurück")
@@ -215,182 +181,198 @@ fun SettingsScreen(vm: VaultViewModel, onBack: () -> Unit) {
         }
     ) { pad ->
         Column(
-            Modifier.padding(pad).fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            Modifier.padding(pad).fillMaxSize().verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Section("Status")
-            StatusRow(
-                "Benachrichtigungszugriff",
-                ok = hasAccess,
-                detail = if (hasAccess) "erteilt" else "fehlt",
-                action = if (hasAccess) null else ({ PermissionUtils.openNotificationAccessSettings(context) })
-            )
-            StatusRow(
-                "Erfassungsdienst",
-                ok = listenerConnected,
-                detail = if (listenerConnected) "verbunden" else "nicht verbunden"
-            )
-            Text(
-                "Letzte Erfassung: ${formatLastCapture(lastCapture)}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            if (hasAccess && !listenerConnected) {
-                TextButton(onClick = {
-                    resultMessage = if (ListenerWatchdog.requestRebind(context)) {
-                        "Neuverbindung angefordert. Der Status oben springt auf „verbunden“, " +
-                            "sobald das System den Dienst gebunden hat — das dauert einen Moment."
-                    } else {
-                        "Ohne Benachrichtigungszugriff kann der Dienst nicht verbunden werden."
-                    }
-                }) { Text("Erfassung neu verbinden") }
-            }
-
-            HorizontalDivider(Modifier.padding(vertical = 8.dp))
-            Section("Autostart & Selbstheilung")
-            ToggleRow("Nach Neustart automatisch starten", autoStart) { vm.setAutoStart(it) }
-            Text(
-                "Verbindet die Erfassung nach einem Neustart, nach einem App-Update und alle " +
-                    "15 Minuten neu. Android trennt den Dienst sonst still — und meldet das nicht.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            if (autoStart) {
-                val overdue = WatchdogPolicy.isWatchdogOverdue(
-                    lastWatchdog, System.currentTimeMillis()
+            SettingsCard("Status", Icons.Outlined.MonitorHeart, index = 0) {
+                StatusRow(
+                    "Benachrichtigungszugriff",
+                    ok = hasAccess,
+                    detail = if (hasAccess) "erteilt" else "fehlt",
+                    action = if (hasAccess) null else ({ PermissionUtils.openNotificationAccessSettings(context) })
+                )
+                StatusRow(
+                    "Erfassungsdienst",
+                    ok = listenerConnected,
+                    detail = if (listenerConnected) "verbunden" else "nicht verbunden"
                 )
                 Text(
-                    "Letzte Prüfung: ${formatRelativeSince(lastWatchdog)}",
+                    "Letzte Erfassung: ${formatLastCapture(lastCapture)}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                // The one symptom no rebind can cure: the app itself is being frozen.
-                if (overdue) {
-                    Text(
-                        "Die Prüfung läuft seit Stunden nicht mehr — das Energiesparen hält die " +
-                            "App an. Nimm sie davon aus, sonst kann auch die Erfassung nicht " +
-                            "zurückkommen.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
-                if (!batteryExempt) {
+                if (hasAccess && !listenerConnected) {
                     TextButton(onClick = {
-                        PermissionUtils.requestIgnoreBatteryOptimizations(context)
-                    }) { Text("Von Akku-Optimierung ausnehmen") }
+                        vm.showMessage(if (ListenerWatchdog.requestRebind(context)) {
+                            "Neuverbindung angefordert. Der Status oben springt auf „verbunden“, " +
+                                "sobald das System den Dienst gebunden hat — das dauert einen Moment."
+                        } else {
+                            "Ohne Benachrichtigungszugriff kann der Dienst nicht verbunden werden."
+                        })
+                    }) { Text("Erfassung neu verbinden") }
                 }
             }
-
-            HorizontalDivider(Modifier.padding(vertical = 8.dp))
-            Section("Überwachte Apps")
-            ToggleRow("Alle Apps erfassen", captureAll) { vm.setCaptureAll(it) }
-            // Spring expand/collapse so the per-app list reveals physically when toggling.
-            AnimatedVisibility(
-                visible = !captureAll,
-                enter = expandVertically(Motion.spatial()) + fadeIn(Motion.effects()),
-                exit = shrinkVertically(Motion.spatial()) + fadeOut(Motion.effects())
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    SettingsStore.KNOWN_MESSENGERS.forEach { (pkg, label) ->
-                        ToggleRow(label, pkg in monitored) { on ->
-                            val next = monitored.toMutableSet()
-                            if (on) next.add(pkg) else next.remove(pkg)
-                            vm.setMonitored(next)
+            SettingsCard("Autostart & Selbstheilung", Icons.Outlined.RestartAlt, index = 1) {
+                ToggleRow("Nach Neustart automatisch starten", autoStart) { vm.setAutoStart(it) }
+                Text(
+                    "Verbindet die Erfassung nach einem Neustart, nach einem App-Update und alle " +
+                        "15 Minuten neu. Android trennt den Dienst sonst still — und meldet das nicht.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                if (autoStart) {
+                    val overdue = WatchdogPolicy.isWatchdogOverdue(
+                        lastWatchdog, System.currentTimeMillis()
+                    )
+                    Text(
+                        "Letzte Prüfung: ${formatRelativeSince(lastWatchdog)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    // The one symptom no rebind can cure: the app itself is being frozen.
+                    if (overdue) {
+                        Text(
+                            "Die Prüfung läuft seit Stunden nicht mehr — das Energiesparen hält die " +
+                                "App an. Nimm sie davon aus, sonst kann auch die Erfassung nicht " +
+                                "zurückkommen.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                    if (!batteryExempt) {
+                        TextButton(onClick = {
+                            PermissionUtils.requestIgnoreBatteryOptimizations(context)
+                        }) { Text("Von Akku-Optimierung ausnehmen") }
+                    }
+                }
+            }
+            SettingsCard("Überwachte Apps", Icons.Outlined.Apps, index = 2) {
+                ToggleRow("Alle Apps erfassen", captureAll) { vm.setCaptureAll(it) }
+                // Spring expand/collapse so the per-app list reveals physically when toggling.
+                AnimatedVisibility(
+                    visible = !captureAll,
+                    enter = expandVertically(Motion.spatial()) + fadeIn(Motion.effects()),
+                    exit = shrinkVertically(Motion.spatial()) + fadeOut(Motion.effects())
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        SettingsStore.KNOWN_MESSENGERS.forEach { (pkg, label) ->
+                            ToggleRow(label, pkg in monitored) { on ->
+                                val next = monitored.toMutableSet()
+                                if (on) next.add(pkg) else next.remove(pkg)
+                                vm.setMonitored(next)
+                            }
                         }
                     }
                 }
             }
-
-            HorizontalDivider(Modifier.padding(vertical = 8.dp))
-            Section("Bilder")
-            ToggleRow("Bilder aus Benachrichtigungen sichern", captureImages) {
-                vm.setCaptureImages(it)
+            SettingsCard("Bilder", Icons.Outlined.Image, index = 3) {
+                ToggleRow("Bilder aus Benachrichtigungen sichern", captureImages) {
+                    vm.setCaptureImages(it)
+                }
+                Text(
+                    "Kommentare unter Bildern werden immer gesichert — sie sind der Nachrichtentext. " +
+                        "Zusätzlich lässt sich die Bildvorschau speichern, die die Benachrichtigung " +
+                        "mitbringt. Das ist nicht das Original aus WhatsApp, sondern die kleinere " +
+                        "Vorschau; an die Originaldatei kommt keine App heran.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    if (imageCount == 0) "Keine Bilder gespeichert."
+                    else "$imageCount Bild${if (imageCount == 1) "" else "er"} · ${formatBytes(imageBytes)} " +
+                        "(verschlüsselt in der Datenbank)",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                if (imageCount > 0) {
+                    TextButton(onClick = { confirmDropImages = true }) { Text("Alle Bilder löschen") }
+                }
             }
-            Text(
-                "Kommentare unter Bildern werden immer gesichert — sie sind der Nachrichtentext. " +
-                    "Zusätzlich lässt sich die Bildvorschau speichern, die die Benachrichtigung " +
-                    "mitbringt. Das ist nicht das Original aus WhatsApp, sondern die kleinere " +
-                    "Vorschau; an die Originaldatei kommt keine App heran.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                if (imageCount == 0) "Keine Bilder gespeichert."
-                else "$imageCount Bild${if (imageCount == 1) "" else "er"} · ${formatBytes(imageBytes)} " +
-                    "(verschlüsselt in der Datenbank)",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            if (imageCount > 0) {
-                TextButton(onClick = { confirmDropImages = true }) { Text("Alle Bilder löschen") }
+            SettingsCard("Sicherheit", Icons.Outlined.Lock, index = 4) {
+                ToggleRow("App mit Biometrie sperren", biometric) { vm.setBiometric(it) }
+                Text("Daten liegen verschlüsselt (SQLCipher / AES-256) lokal auf dem Gerät.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.secondary)
             }
-
-            HorizontalDivider(Modifier.padding(vertical = 8.dp))
-            Section("Sicherheit")
-            ToggleRow("App mit Biometrie sperren", biometric) { vm.setBiometric(it) }
-            Text("Daten liegen verschlüsselt (SQLCipher / AES-256) lokal auf dem Gerät.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.secondary)
-
-            HorizontalDivider(Modifier.padding(vertical = 8.dp))
-            Section("Export & Import ($total Nachrichten)")
-            Text(
-                "Das ganze Archiv als Datei sichern und wieder einlesen. Verschlüsselung ist " +
-                    "optional — verschlüsselt (.kpvault) ist die Datei ohne Passphrase wertlos, " +
-                    "JSON und CSV sind lesbar und lassen sich genauso zurückspielen. " +
-                    "Gespeicherte Bilder bleiben auf dem Gerät und sind nicht Teil des Exports.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Button(
-                onClick = { exportFormatDialog = true },
-                enabled = total > 0 && !busy,
-                modifier = Modifier.fillMaxWidth()
-            ) { Text("Archiv exportieren…") }
-            OutlinedButton(
-                onClick = { importPicker.launch(arrayOf("*/*")) },
-                enabled = !busy,
-                modifier = Modifier.fillMaxWidth()
-            ) { Text("Aus Datei importieren…") }
-            Text(
-                "Ein Import fügt nur hinzu: bereits vorhandene Nachrichten bleiben unverändert, " +
-                    "dieselbe Datei zweimal einzulesen ändert nichts.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.secondary
-            )
-
-            HorizontalDivider(Modifier.padding(vertical = 8.dp))
-            Section("Daten")
-            RetentionRow(retention) { showRetentionDialog = true }
-            OutlinedButton(
-                onClick = { confirmClear = true },
-                enabled = total > 0,
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
-            ) { Text("Alle Daten löschen") }
-
-            HorizontalDivider(Modifier.padding(vertical = 8.dp))
-            Section("Hinweise")
-            Text(
-                "• Medien (Fotos, Sprachnachrichten) können technisch nicht gesichert werden.\n" +
-                "• Stummgeschaltete Chats und Nachrichten, die du im offenen Chat empfängst, " +
-                "lösen oft keine Benachrichtigung aus und werden daher nicht erfasst.",
-                style = MaterialTheme.typography.bodySmall
-            )
-
-            HorizontalDivider(Modifier.padding(vertical = 8.dp))
-            Section("Über die App")
-            // Version comes from BuildConfig, i.e. from the APK that is actually running —
-            // the quickest way to check whether an update really landed on the device.
-            InfoRow("Version", "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
-            InfoRow("Paket", BuildConfig.APPLICATION_ID)
-
-            Spacer(Modifier.padding(16.dp))
+            SettingsCard("Erscheinungsbild", Icons.Outlined.Palette, index = 5) {
+                AppearanceSection(
+                    mode = themeMode,
+                    dynamicColor = dynamicColor,
+                    onMode = vm::setThemeMode,
+                    onDynamicColor = vm::setDynamicColor
+                )
+            }
+            SettingsCard("Export & Import ($total Nachrichten)", Icons.Outlined.ImportExport, index = 6) {
+                Text(
+                    "Das ganze Archiv als Datei sichern und wieder einlesen. Verschlüsselung ist " +
+                        "optional — verschlüsselt (.kpvault) ist die Datei ohne Passphrase wertlos, " +
+                        "JSON und CSV sind lesbar und lassen sich genauso zurückspielen. " +
+                        "Gespeicherte Bilder bleiben auf dem Gerät und sind nicht Teil des Exports.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                AnimatedVisibility(
+                    visible = busy,
+                    enter = expandVertically(Motion.spatial()) + fadeIn(Motion.effects()),
+                    exit = shrinkVertically(Motion.spatial()) + fadeOut(Motion.effects())
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        LoadingIndicator(Modifier.size(40.dp))
+                        Spacer(Modifier.width(12.dp))
+                        Text("Wird verarbeitet…", style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+                Button(
+                    onClick = { exportFormatDialog = true },
+                    enabled = total > 0 && !busy,
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("Archiv exportieren…") }
+                OutlinedButton(
+                    onClick = {
+                        runCatching { importPicker.launch(arrayOf("*/*")) }
+                            .onFailure { vm.showMessage("Kein Dateiauswahl-Dialog verfügbar.") }
+                    },
+                    enabled = !busy,
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("Aus Datei importieren…") }
+                Text(
+                    "Ein Import fügt nur hinzu: bereits vorhandene Nachrichten bleiben unverändert, " +
+                        "dieselbe Datei zweimal einzulesen ändert nichts.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.secondary
+                )
+            }
+            SettingsCard("Daten", Icons.Outlined.Storage, index = 7) {
+                RetentionRow(retention) { showRetentionDialog = true }
+                OutlinedButton(
+                    onClick = { confirmClear = true },
+                    enabled = total > 0,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                ) { Text("Alle Daten löschen") }
+            }
+            SettingsCard("Updates", Icons.Outlined.SystemUpdate, index = 8) {
+                UpdateSection(onOpenFailed = { vm.showMessage("Kein Browser gefunden.") })
+            }
+            SettingsCard("Hinweise", Icons.Outlined.Info, index = 9) {
+                Text(
+                    "• Sprachnachrichten, Videos und Originaldateien kommen in keiner Benachrichtigung " +
+                    "vor und können daher nicht gesichert werden — Bilder nur als Vorschau.\n" +
+                    "• Stummgeschaltete Chats und Nachrichten, die du im offenen Chat empfängst, " +
+                    "lösen oft keine Benachrichtigung aus und werden daher nicht erfasst.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+            SettingsCard("Über die App", Icons.Outlined.Favorite, index = 10) {
+                AboutSection(onOpenFailed = { vm.showMessage("Kein Browser gefunden.") })
+            }
             Text(
                 "© 2026 Martin Pfeffer | celox.io",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.secondary,
-                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
             )
         }
     }
@@ -451,83 +433,52 @@ fun SettingsScreen(vm: VaultViewModel, onBack: () -> Unit) {
         ExportFormatDialog(
             onSelect = { format ->
                 exportFormatDialog = false
-                exportFormat = format
-                if (format.encrypted) {
-                    exportPassDialog = true
-                } else {
-                    val date = SimpleDateFormat("yyyy-MM-dd", Locale.GERMANY).format(Date())
-                    exportCreator.launch(ExportNaming.exportFileName(date, format))
-                }
+                if (format.encrypted) exportPassFor = format else launchExport(format, null)
             },
             onDismiss = { exportFormatDialog = false }
         )
     }
 
-    if (exportPassDialog) {
+    exportPassFor?.let { format ->
         PassphraseDialog(
             title = "Export verschlüsseln",
             hint = "Mindestens ${VaultBackup.MIN_PASSPHRASE_LENGTH} Zeichen. Ohne diese Passphrase " +
                 "lässt sich die Datei nie wieder öffnen.",
             requireConfirm = true,
             onConfirm = { pass ->
-                exportPassDialog = false
-                exportPass = pass
-                val date = SimpleDateFormat("yyyy-MM-dd", Locale.GERMANY).format(Date())
-                exportCreator.launch(ExportNaming.exportFileName(date, VaultFormat.ENCRYPTED))
+                exportPassFor = null
+                launchExport(format, pass)
             },
-            onDismiss = { exportPassDialog = false; exportFormat = null }
+            onDismiss = { exportPassFor = null }
         )
     }
 
-    if (importPassDialog) {
-        val uri = importUri
+    if (transfer.needsImportPass) {
         PassphraseDialog(
             title = "Datei entschlüsseln",
             hint = "Passphrase der verschlüsselten Datei eingeben.",
             requireConfirm = false,
-            onConfirm = { pass ->
-                importPassDialog = false
-                if (uri != null) prepareImport(uri, VaultFormat.ENCRYPTED, pass.toCharArray())
-            },
-            onDismiss = { importPassDialog = false; importUri = null; importFormat = null }
+            onConfirm = { pass -> vm.submitImportPass(pass) },
+            onDismiss = { vm.cancelImport() }
         )
     }
 
     // What the file holds, shown before a single row is written.
-    importPreview?.let { (preview, decrypted) ->
-        val uri = importUri
+    transfer.preview?.let { preview ->
         ImportPreviewDialog(
             preview = preview,
-            onConfirm = {
-                importPreview = null
-                if (uri == null) return@ImportPreviewDialog
-                busy = true
-                scope.launch {
-                    resultMessage = runCatching {
-                        vm.applyImport(preview.format, { openImport(uri) }, decrypted)
-                    }.fold(
-                        onSuccess = { (imported, present) ->
-                            "Import abgeschlossen: $imported Nachrichten übernommen, " +
-                                "$present waren bereits vorhanden."
-                        },
-                        onFailure = { importError(it) }
-                    )
-                    busy = false
-                    importUri = null
-                    importFormat = null
-                }
-            },
-            onDismiss = { importPreview = null; importUri = null; importFormat = null }
+            onConfirm = { vm.confirmImport() },
+            onDismiss = { vm.cancelImport() }
         )
     }
 
-    resultMessage?.let { msg ->
+    transfer.message?.let { msg ->
         AlertDialog(
-            onDismissRequest = { resultMessage = null },
-            title = { Text("Export & Import") },
+            onDismissRequest = { vm.dismissMessage() },
+            title = { Text("Hinweis") },
             text = { Text(msg) },
             confirmButton = {
-                TextButton(onClick = { resultMessage = null }) { Text("OK") }
+                TextButton(onClick = { vm.dismissMessage() }) { Text("OK") }
             }
         )
     }
@@ -609,18 +560,6 @@ private fun RetentionDialog(current: Int, onSelect: (Int) -> Unit, onDismiss: ()
             TextButton(onClick = onDismiss) { Text("Abbrechen") }
         }
     )
-}
-
-/**
- * Turns a failed export/import into something the user can act on. A wrong passphrase is by far
- * the most common cause and must not read like a corrupt file.
- */
-private fun importError(t: Throwable): String = when (t) {
-    is javax.crypto.AEADBadTagException ->
-        "Entschlüsselung fehlgeschlagen — falsche Passphrase oder beschädigte Datei."
-    is IllegalArgumentException ->
-        "Datei konnte nicht gelesen werden: ${t.message}"
-    else -> "Import fehlgeschlagen: ${t.message}"
 }
 
 /** Format picker — this is where encryption becomes optional rather than mandatory. */
@@ -764,10 +703,33 @@ private fun PassphraseDialog(
     )
 }
 
+/**
+ * One settings group: a tonal card with an icon-led title, rising in on a staggered spring
+ * (the expressive replacement for divider-separated flat sections).
+ */
 @Composable
-private fun Section(title: String) {
-    Text(title, style = MaterialTheme.typography.titleSmall,
-        fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+private fun SettingsCard(
+    title: String,
+    icon: ImageVector,
+    index: Int,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        shape = MaterialTheme.shapes.large,
+        modifier = Modifier.fillMaxWidth().springEntrance(index)
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(10.dp))
+                Text(title, style = MaterialTheme.typography.titleMediumEmphasized,
+                    color = MaterialTheme.colorScheme.primary)
+            }
+            content()
+        }
+    }
 }
 
 /** Label on the left, a read-only value on the right. */
@@ -788,14 +750,5 @@ private fun InfoRow(label: String, value: String) {
 }
 
 @Composable
-private fun ToggleRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(label, style = MaterialTheme.typography.bodyLarge)
-        Switch(checked = checked, onCheckedChange = onChange)
-    }
-}
-
+private fun ToggleRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) =
+    SwitchRow(title = label, hint = null, checked = checked, onToggle = { onChange(!checked) })

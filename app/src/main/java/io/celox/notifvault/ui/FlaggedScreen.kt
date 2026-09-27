@@ -1,5 +1,10 @@
 package io.celox.notifvault.ui
 
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material3.MediumFlexibleTopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import io.celox.notifvault.ui.theme.springEntrance
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -47,19 +52,16 @@ fun FlaggedScreen(
 ) {
     val flagged by vm.flagged.collectAsStateWithLifecycle()
 
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text("Aufgedeckt", fontWeight = FontWeight.SemiBold)
-                        Text(
-                            "${flagged.size} gelöschte & bearbeitete Nachricht${if (flagged.size == 1) "" else "en"}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+            MediumFlexibleTopAppBar(
+                title = { Text("Aufgedeckt") },
+                subtitle = {
+                    Text("${flagged.size} gelöschte & bearbeitete Nachricht${if (flagged.size == 1) "" else "en"}")
                 },
+                scrollBehavior = scrollBehavior,
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Zurück")
@@ -72,13 +74,13 @@ fun FlaggedScreen(
             EmptyFlagged(Modifier.padding(pad))
         } else {
             LazyColumn(Modifier.padding(pad).fillMaxSize()) {
-                items(flagged, key = { it.id }) { m ->
+                itemsIndexed(flagged, key = { _, it -> it.id }) { i, m ->
                     Column(
                         Modifier.animateItem(
                             fadeInSpec = Motion.effects(),
                             placementSpec = Motion.spatial(),
                             fadeOutSpec = Motion.effects()
-                        )
+                        ).springEntrance(i)
                     ) {
                         FlaggedRow(m) { onOpenConversation(m.conversationKey, m.packageName) }
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))

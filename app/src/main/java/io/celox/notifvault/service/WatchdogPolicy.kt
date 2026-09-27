@@ -25,6 +25,14 @@ object WatchdogPolicy {
     const val JOB_ID = 8231
 
     /**
+     * The JobScheduler ids WorkManager (opt-in update check) may use. WorkManager otherwise hands
+     * out ids from the whole int range and would sooner or later take [JOB_ID] — scheduling its
+     * job would then silently replace the capture watchdog. The range must not contain [JOB_ID].
+     */
+    const val WORK_MANAGER_MIN_ID = 10_000
+    const val WORK_MANAGER_MAX_ID = 20_000
+
+    /**
      * `requestRebind` fails for a listener without notification access, and re-binding a
      * connected listener would only interrupt a working capture — so neither is attempted.
      */
@@ -48,6 +56,14 @@ object WatchdogPolicy {
         now: Long,
         intervalMs: Long = INTERVAL_MS
     ): Boolean = lastRunAt > 0L && now - lastRunAt > OVERDUE_FACTOR * intervalMs
+
+    /**
+     * Whether a job that is already pending has to be replaced. `schedule` normally leaves a
+     * pending job alone (re-scheduling restarts its period), but a job persisted by an older
+     * release would otherwise keep that release's parameters for good.
+     */
+    fun needsReschedule(pendingIntervalMs: Long, pendingPersisted: Boolean): Boolean =
+        pendingIntervalMs != INTERVAL_MS || !pendingPersisted
 
     /** Two missed runs are a hiccup (Doze batches jobs); three mean the app is being held down. */
     private const val OVERDUE_FACTOR = 3

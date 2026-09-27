@@ -22,7 +22,7 @@ import java.io.ByteArrayOutputStream
 class VaultTransferTest {
 
     /** Minimal in-memory DAO. Only the export/insert paths are exercised. */
-    private class FakeDao(initial: List<CapturedMessage> = emptyList()) : MessageDao {
+    private open class FakeDao(initial: List<CapturedMessage> = emptyList()) : MessageDao {
         val rows = LinkedHashMap<String, CapturedMessage>()
         init { initial.forEach { rows[it.id] = it } }
 
@@ -34,8 +34,12 @@ class VaultTransferTest {
 
         override suspend fun exportAll(): List<CapturedMessage> = rows.values.sortedBy { it.id }
 
-        override suspend fun exportChunk(limit: Int, offset: Int): List<CapturedMessage> =
-            rows.values.sortedBy { it.id }.drop(offset).take(limit)
+        // Same semantics as the SQL: ids strictly after [afterId], ascending, at most [limit].
+        override suspend fun exportChunk(limit: Int, afterId: String): List<CapturedMessage> =
+            rows.values.filter { it.id > afterId }.sortedBy { it.id }.take(limit)
+
+        override suspend fun countNow(): Int = rows.size
+        override suspend fun existingAttachmentIds(ids: List<String>): List<String> = emptyList()
 
         override fun conversations(): Flow<List<ConversationSummary>> = flowOf(emptyList())
         override fun messagesFor(conversationKey: String, pkg: String): Flow<List<CapturedMessage>> = flowOf(emptyList())
@@ -204,5 +208,60 @@ class VaultTransferTest {
         val (preview, _) = VaultTransfer.preview(VaultFormat.JSON, { ByteArrayInputStream(bytes) }, null)
         assertEquals(source.minOf { it.messageTime }, preview.oldest)
         assertEquals(source.maxOf { it.messageTime }, preview.newest)
+    }
+
+    // Ids are content hashes, i.e. random. A message captured while the export runs can land in
+    // front of the page already written; with LIMIT/OFFSET that shifted every later page and one
+    // row was exported twice. Keyset paging must neither duplicate nor skip.
+    @Test
+    fun `rows arriving mid-export neither duplicate nor drop existing rows`() = runBlocking {
+        val source = List(VaultTransfer.CHUNK * 2 + 7) { msg(it) }
+        var pages = 0
+        val dao = object : FakeDao(source) {
+            override suspend fun exportChunk(limit: Int, afterId: String): List<CapturedMessage> {
+                val page = super.exportChunk(limit, afterId)
+                if (++pages == 1) {
+                    // Sorts before everything already written, then something is deleted too.
+                    rows["aaa-new"] = msg(9999).copy(id = "aaa-new")
+                    rows.remove(page.first().id)
+                }
+                return page
+            }
+        }
+        val out = ByteArrayOutputStream()
+        VaultTransfer.export(dao, out, VaultFormat.JSON, null, total = source.size)
+
+        val ids = mutableListOf<String>()
+        VaultJson.parse(ByteArrayInputStream(out.toByteArray()).reader(Charsets.UTF_8)) { ids += it.id }
+        assertEquals("a row was exported twice", ids.size, ids.toSet().size)
+        assertEquals("existing rows went missing", source.map { it.id }.toSet(), ids.toSet())
+    }
+
+    // A failed export must not end in a well-formed file: closing the writer would write the
+    // GZIP trailer and the GCM tag and turn a partial archive into a valid, authenticated one.
+    @Test
+    fun `an export that fails halfway leaves no valid encrypted archive`() {
+        val source = List(VaultTransfer.CHUNK * 2) { msg(it) }
+        var pages = 0
+        val dao = object : FakeDao(source) {
+            override suspend fun exportChunk(limit: Int, afterId: String): List<CapturedMessage> {
+                if (++pages == 2) throw java.io.IOException("Speicher voll")
+                return super.exportChunk(limit, afterId)
+            }
+        }
+        val out = ByteArrayOutputStream()
+        val failed = runCatching {
+            runBlocking {
+                VaultTransfer.export(dao, out, VaultFormat.ENCRYPTED, "geheim-passwort".toCharArray(), source.size)
+            }
+        }
+        assertTrue(failed.isFailure)
+        val decoded = runCatching {
+            VaultTransfer.preview(
+                VaultFormat.ENCRYPTED, { ByteArrayInputStream(out.toByteArray()) },
+                "geheim-passwort".toCharArray()
+            )
+        }
+        assertTrue("a partial export decrypted as a valid archive", decoded.isFailure)
     }
 }

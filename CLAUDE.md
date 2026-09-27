@@ -9,8 +9,9 @@ Kleene Petze (display name; package/`applicationId` stay `io.celox.notifvault`, 
 an Android app that permanently and encryptedly archives incoming messaging notifications — like Samsung's
 notification history but without the 24h expiry. Its core trick:
 WhatsApp sends **no** notification when a message is deleted, so the original notification (already captured
-on arrival) survives deletion. Everything is on-device; the app has **no `INTERNET` permission**, no cloud,
-no tracking, and backups are disabled (`allowBackup="false"`).
+on arrival) survives deletion. Everything is on-device: no cloud, no tracking, backups are disabled
+(`allowBackup="false"`). Since v1.10.0 the app holds `INTERNET` for **one** feature only — the opt-in update
+check (off by default, see `update/`); captured messages have no code path off the device.
 
 Single Gradle module (`:app`), Kotlin + Jetpack Compose, minSdk 26 / target+compile 35, JDK 17.
 
@@ -20,7 +21,7 @@ Single Gradle module (`:app`), Kotlin + Jetpack Compose, minSdk 26 / target+comp
 ./gradlew assembleDebug        # APK → app/build/outputs/apk/debug/
 ./gradlew installDebug         # build + install to connected device/emulator
 ./gradlew lint                 # Android lint
-./gradlew testDebugUnitTest    # 185 JVM unit tests (MessageId, Grouping, Deletion, Noise, WatchdogPolicy, ImagePolicy, AttachmentSchema, ExportUtils, ExportNaming, VaultJson, VaultCsv, VaultFormat, VaultTransfer, VaultCodec, VaultBackup, BackupMerge, RetentionPolicy, Format, SearchUtils)
+./gradlew testDebugUnitTest    # 215 JVM unit tests (MessageId, Grouping, Deletion, Noise, WatchdogPolicy, ImagePolicy, AttachmentSchema, ExportUtils, ExportNaming, VaultJson, VaultCsv, VaultFormat, VaultTransfer, VaultCodec, VaultBackup, BackupMerge, RetentionPolicy, Format, SearchUtils, LockPolicy, AppVersion, UpdatePolicy, ReleaseSource, AboutLinks, ScreenMotion, Changelog)
 ./gradlew testDebugUnitTest --tests "io.celox.notifvault.notif.MessageIdTest"   # single test class
 ```
 
@@ -29,9 +30,14 @@ and set `sdk.dir`. The repo is `github.com/pepperonas/kleene-petze` (public).
 
 ## Release
 
-Releases are cut by tag: bump `versionCode` (+1) and `versionName` in `app/build.gradle.kts`, commit and
-push, then `git tag vX.Y.Z && git push origin vX.Y.Z` — `.github/workflows/release.yml` builds the signed
-APK and publishes it as a GitHub Release asset (`kleene-petze-vX.Y.Z.apk`). Verify the run succeeded
+Releases are cut by tag: bump `versionCode` (+1) and `versionName` in `app/build.gradle.kts`, add a dated
+`## [X.Y.Z] - YYYY-MM-DD` section to `CHANGELOG.md` (`ChangelogTest` fails the build without it — it must
+also be the newest section), commit and push, then `git tag vX.Y.Z && git push origin vX.Y.Z` —
+`.github/workflows/release.yml` runs the unit tests, builds the signed APK and publishes it as a GitHub
+Release asset (`kleene-petze-vX.Y.Z.apk` + `SHA256SUMS.txt`) with the CHANGELOG section as notes
+(`scripts/release-notes.sh`; a tag without a section is a red run). The product page
+(`kleene-petze.celox.io`, source in `website/`, built with the product-page kit) mirrors the newest release
+every 15 minutes into `latest.json` + `/download`, which the in-app update check reads. Verify the run succeeded
 (`gh run watch`/`gh run list`); a "job was not acquired by Runner" failure is a GitHub infra flake →
 `gh run rerun`. Local `assembleRelease` signs via the gitignored `keystore.properties` + `release.jks`
 (secrets live only in the private `pepperonas/keystore` repo and the Actions secrets — never commit
@@ -214,7 +220,17 @@ The whole app is one pipeline: a system notification → a stored, encrypted row
    `KNOWN_MESSENGERS` is the Settings toggle list, `DEFAULT_PACKAGES` the WhatsApp default.
 
 5. **`ui/`** — Compose. `MainActivity` is a **`FragmentActivity`** (required by `BiometricPrompt`); it gates
-   the app behind biometric/device-credential unlock when enabled (and **re-locks on `ON_STOP`**), then a
+   the app behind biometric/device-credential unlock when enabled (and **re-locks on `ON_STOP`**).
+   **Lock architecture (v1.10.0):** the vault (`AppNav`) stays composed *underneath* an opaque `LockScreen`
+   overlay — removing it on lock (the old design) threw away the NavController and every registered
+   ActivityResult launcher the moment the SAF picker sent the app to the background, so with the lock on an
+   export's result was dropped and an empty file remained. While locked the vault is hidden from
+   accessibility (`clearAndSetSemantics`) and back (`BackHandler`), the window is `FLAG_SECURE` whenever the
+   lock is on (the recents thumbnail is taken *before* `ON_STOP`), nothing renders until DataStore has
+   answered (`biometricLock` collected as `Boolean?`), and the session state lives in `VaultViewModel.
+   unlocked` (rotation-safe; `setBiometric(true)` marks the session unlocked so switching the lock on does
+   not lock the owner out). `LockPolicy.skipAuthentication` skips the prompt only when authentication is
+   *permanently* impossible (none enrolled / no hardware / unsupported). Then a
    `NavHost` routes onboarding → home → chat / flagged → settings. Nav args are the **`conversationKey` +
    package** (not the title; the chat screen derives the title from its latest message), encoded **exactly
    once** with `Uri.encode` — Navigation Uri-decodes route args itself, so there is deliberately no manual
@@ -235,12 +251,20 @@ The whole app is one pipeline: a system notification → a stored, encrypted row
    via SAF (`CreateDocument`/`OpenDocument` + passphrase dialogs; results in a dialog). Destructive
    actions (delete chat / clear all / retention) require confirmation. `VaultViewModel` (`AndroidViewModel`)
    owns the DAO Flows as `StateFlow`s, the **debounced** search query, and `importBackup` (insert-IGNORE
-   merge, plan via `BackupMerge`, flag re-apply chunked at `BackupMerge.FLAG_CHUNK` = 500 ids per UPDATE). **Motion:** `theme/Motion.kt` is a small
-   spring-physics system (M3-Expressive-style tokens — `spatial` may overshoot for position/size/shape,
-   `effects` is high-damping for color/alpha; the public `MaterialExpressiveTheme`/`MotionScheme` only ship on
-   material3 1.5.0-alpha, so we stay on stable 1.3.x and roll our own). Use these specs, not fixed `tween`s,
-   for custom animations: `Components.clickableScale` (spring press feedback on rows), `LazyColumn` item
-   spring placement via `Modifier.animateItem(...)`, and the Settings per-app list / Onboarding cards reveal.
+   merge, plan via `BackupMerge`, flag re-apply chunked at `BackupMerge.FLAG_CHUNK` = 500 ids per UPDATE).
+   Since v1.10.0 it also owns the **whole export/import flow** (`TransferUi` state + `beginExport`/
+   `onExportTarget`/`onImportPicked`/`confirmImport`, work in `viewModelScope`): the SAF picker backgrounds
+   the activity and a rotation recreates it, so screen-local `remember` state was gone when the result
+   arrived. A failed/cancelled export deletes the target (`DocumentsContract.deleteDocument`, NonCancellable)
+   and `VaultTransfer.export` never closes its writer on failure (closing = GZIP trailer + GCM tag = a
+   valid-looking partial archive). **Theme & motion (v1.10.0):** material3 is pinned to `1.5.0-alpha18`
+   past the BOM (like Brutus/Flipper) for `MaterialExpressiveTheme` + `MotionScheme.expressive()`; brand
+   scheme teal/amber on ink `#0D1528` (the artwork's sky), dynamic color and System/Light/Dark are settings.
+   `theme/Motion.kt` keeps the `Motion.spatial()/effects()` call sites but reads them from the theme's
+   MotionScheme; `springPressed` (press physics), `springEntrance(index)` (staggered, capped), and
+   `ScreenTransitions` (NavHost: child rises, parent settles) — all no-ops under "remove animations".
+   Use these specs, not fixed `tween`s. **About / updates:** `ui/about/` (`AboutLinks` incl. PayPal
+   `donateUrl`, `AboutSection`, `UpdateSection`, `AppearanceSection`, `SwitchRow`).
    Shared bits: `Components.kt` (`Avatar`, `clickableScale`),
    `Format.kt` (date/time, `identityColor`, `initials`). Theme in `ui/theme/`.
 
@@ -292,7 +316,15 @@ and `NoiseCleanup.runOnce`.
   `EXTRA_PICTURE`). Voice notes and video have no such preview, so those remain text-only.
   **A caption was never the problem** — a caption *is* the message text and has always been stored;
   what was lost were captionless pictures, dropped by the `text.isEmpty()` guard in the extractor.
-- **Don't add network permissions or dependencies.** The privacy guarantee (offline-only) is a feature.
+- **Network: only the opt-in update check, nothing else.** `update/` asks `kleene-petze.celox.io/latest.json`
+  (fallback GitHub API) once a day *if* the user switched it on (`UpdateCheckStore`, default **off**);
+  off means no WorkManager work is enqueued at all (`UpdatePolicy.scheduleOnStart`, pinned by a test).
+  Don't add anything else that talks to the network, and never send captured data anywhere — the
+  privacy guarantee is the product. WorkManager's JobScheduler ids are confined to
+  `WatchdogPolicy.WORK_MANAGER_MIN_ID..MAX_ID` via `NotifVaultApp : Configuration.Provider` (default
+  initializer removed in the manifest) — otherwise it could take the watchdog's job id 8231.
+- **Lint:** AGP 8.7.3's lint engine is older than the Compose lint rules in the 2026 BOM (detectors crash
+  with `IncompatibleClassChangeError`), so `gradle.properties` sets `android.experimental.lint.version`.
 - **Keep decision logic in framework-free seams.** There are no instrumented tests here (no emulator in
   the loop), so anything worth verifying — grouping, dedup, retention, restore-merge, file names, codecs —
   lives in plain Kotlin objects/functions that `src/test` can call directly; the Android class around them

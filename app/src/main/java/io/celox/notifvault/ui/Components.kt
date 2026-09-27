@@ -26,7 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import io.celox.notifvault.ui.theme.Motion
+import io.celox.notifvault.ui.theme.springPressed
 
 /**
  * Circular identity avatar: a deterministic solid color from [name] with either the
@@ -60,20 +60,14 @@ fun Avatar(name: String, isGroup: Boolean, size: Dp = 48.dp) {
 }
 
 /**
- * Clickable with spring-physics press feedback: the element scales down on press and
- * springs back (spatial token), keeping the standard ripple. Use on whole-row / card
- * targets where a plain ripple feels flat.
+ * Clickable with spring-physics press feedback: the element sinks on press and springs back on
+ * the theme's fast spatial spring, keeping the standard ripple. Use on whole-row / card targets
+ * where a plain ripple feels flat.
  */
 @Composable
 fun Modifier.clickableScale(scaleTo: Float = 0.97f, onClick: () -> Unit): Modifier {
     val interaction = remember { MutableInteractionSource() }
-    val pressed by interaction.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        targetValue = if (pressed) scaleTo else 1f,
-        animationSpec = Motion.spatial(),
-        label = "pressScale"
-    )
     return this
-        .graphicsLayer { scaleX = scale; scaleY = scale }
+        .springPressed(interaction, scaleTo)
         .clickable(interactionSource = interaction, indication = ripple(), onClick = onClick)
 }
