@@ -32,7 +32,9 @@ and set `sdk.dir`. The repo is `github.com/pepperonas/kleene-petze` (public).
 
 Releases are cut by tag: bump `versionCode` (+1) and `versionName` in `app/build.gradle.kts`, add a dated
 `## [X.Y.Z] - YYYY-MM-DD` section to `CHANGELOG.md` (`ChangelogTest` fails the build without it — it must
-also be the newest section), commit and push, then `git tag vX.Y.Z && git push origin vX.Y.Z` —
+also be the newest section), run `python3 scripts/update-badges.py` (README badges for version / unit
+tests / lines of code / test code + `.github/repo-stats.json` for the product page — `ReadmeBadgesTest`
+fails when they drift; never type those numbers), commit and push, then `git tag vX.Y.Z && git push origin vX.Y.Z` —
 `.github/workflows/release.yml` runs the unit tests, builds the signed APK and publishes it as a GitHub
 Release asset (`kleene-petze-vX.Y.Z.apk` + `SHA256SUMS.txt`) with the CHANGELOG section as notes
 (`scripts/release-notes.sh`; a tag without a section is a red run). The product page

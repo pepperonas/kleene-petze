@@ -1,6 +1,6 @@
 <div align="center">
 
-<a href="https://kleene-petze.celox.io"><img src="docs/banner.png" alt="Kleene Petze — petzt alles. vergisst nie. Open the website." width="100%"></a>
+<a href="https://kleene-petze.celox.io"><img src="docs/banner.webp" alt="Kleene Petze — petzt alles. vergisst nie. Open the website." width="100%"></a>
 
 # 🦜 Kleene Petze
 
