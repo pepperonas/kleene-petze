@@ -30,8 +30,9 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      # No setup-android action: ubuntu-latest ships the SDK (ANDROID_HOME), and
+      # android-actions/setup-android@v3 broke on 2026-09-27 — it installs the removed
+      # 'tools' package, which sdkmanager 16.0 rejects.
 
       - name: Gradle cache
         uses: gradle/actions/setup-gradle@v4
