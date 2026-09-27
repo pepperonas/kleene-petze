@@ -10,7 +10,7 @@
  "tagline": "Petzt alles. Vergisst nie.",
  "license": "MIT",
  "year": 2026,
- "asset_version": 1,
+ "asset_version": 2,
  "theme_source": "app/src/main/java/io/celox/notifvault/ui/theme/Color.kt — the app's dark scheme (teal on the ink night sky of the artwork, amber accent)",
  "theme": {
   "bg": "#0D1528",
@@ -126,14 +126,15 @@
    "Self-healing capture: reconnects after reboots and app updates, with a status check in Settings",
    "Material 3 Expressive interface with light, dark and system theme",
    "Opt-in update check: a daily look at the newest version, a notification when one is out",
-   "No ads, no tracking, no account; nothing leaves the device"
+   "No ads, no tracking, no account; nothing leaves the device",
+   "English and German, including per-app language on Android 13+"
   ],
   "limits": [
    "Android only; not on Google Play — distributed as an APK through GitHub Releases.",
    "Only messages that arrive as a notification on this phone are saved: muted chats and messages you receive while the chat is open often post none.",
    "A message deleted after you have already read it cannot be recovered — there is no notification left to keep.",
    "Voice messages, videos and original files are never part of a notification; pictures are kept only as the smaller preview.",
-   "The user interface is German.",
+   "The interface is available in English and German only.",
    "It does not download or install updates by itself — it only tells you, and you install the new APK over the old one."
   ],
   "hero.kicker": {
@@ -277,11 +278,11 @@
    "fr": "Material 3 Expressive, avec un perroquet qui n’oublie rien"
   },
   "s.alt": {
-   "en": "Four screens of the German interface with invented chats: the welcome screen, the chat list, a chat with a deleted message highlighted in red, and the Uncovered view",
-   "de": "Vier Bildschirme mit erfundenen Chats: der Willkommensbildschirm, die Chatliste, ein Chat mit einer rot markierten gelöschten Nachricht und die Ansicht Aufgedeckt",
-   "es": "Cuatro pantallas de la interfaz en alemán con chats inventados: la bienvenida, la lista de chats, un chat con un mensaje borrado resaltado en rojo y la vista Aufgedeckt",
-   "it": "Quattro schermate dell’interfaccia in tedesco con chat inventate: il benvenuto, l’elenco delle chat, una chat con un messaggio cancellato evidenziato in rosso e la vista Aufgedeckt",
-   "fr": "Quatre écrans de l’interface en allemand avec des discussions inventées : l’accueil, la liste des discussions, une discussion avec un message supprimé surligné en rouge et la vue Aufgedeckt"
+   "en": "Four screens with invented chats: the welcome screen with the parrot, the chat list, a chat with a deleted message highlighted in red, and the Uncovered view",
+   "de": "Vier Bildschirme mit erfundenen Chats: der Willkommensbildschirm mit dem Papagei, die Chatliste, ein Chat mit einer rot markierten gelöschten Nachricht und die Ansicht Uncovered",
+   "es": "Cuatro pantallas con chats inventados: la bienvenida con el loro, la lista de chats, un chat con un mensaje borrado resaltado en rojo y la vista Uncovered",
+   "it": "Quattro schermate con chat inventate: il benvenuto con il pappagallo, l’elenco delle chat, una chat con un messaggio cancellato evidenziato in rosso e la vista Uncovered",
+   "fr": "Quatre écrans avec des discussions inventées : l’accueil avec le perroquet, la liste des discussions, une discussion avec un message supprimé surligné en rouge et la vue Uncovered"
   },
   "install": [
    {
@@ -474,5 +475,33 @@
    "apk"
   ],
   "skill_description": "Download, verify and install the newest Kleene Petze APK — the free, open-source Android app that keeps message notifications in an encrypted on-device archive so deleted WhatsApp messages stay readable. Use when someone asks for the app, its latest version, a download link, or how to check the APK is genuine."
+ },
+ "repo_stats": {
+  "path": ".github/repo-stats.json",
+  "items": [
+   {
+    "key": "loc_main",
+    "format": "k",
+    "detail": "{loc_test:k} of test code",
+    "label": {
+     "en": "Lines of Kotlin",
+     "de": "Zeilen Kotlin",
+     "es": "Líneas de Kotlin",
+     "it": "Righe di Kotlin",
+     "fr": "Lignes de Kotlin"
+    }
+   },
+   {
+    "key": "tests",
+    "format": "int",
+    "label": {
+     "en": "Unit tests",
+     "de": "Unit-Tests",
+     "es": "Pruebas unitarias",
+     "it": "Test unitari",
+     "fr": "Tests unitaires"
+    }
+   }
+  ]
  }
 }

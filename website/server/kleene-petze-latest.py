@@ -43,7 +43,20 @@ CONFIG = json.loads(r'''{
  "release_tag": null,
  "mirror": true,
  "mirror_max_mb": 500,
- "repo_stats": null,
+ "repo_stats": {
+  "path": ".github/repo-stats.json",
+  "items": [
+   {
+    "key": "loc_main",
+    "format": "k",
+    "detail": "{loc_test:k} of test code"
+   },
+   {
+    "key": "tests",
+    "format": "int"
+   }
+  ]
+ },
  "targets": [
   {
    "id": "android",

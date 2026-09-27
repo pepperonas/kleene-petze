@@ -54,6 +54,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -78,9 +79,9 @@ fun AppearanceSection(
     onDynamicColor: (Boolean) -> Unit
 ) {
     val options = listOf(
-        Triple(ThemeMode.SYSTEM, "System", Icons.Outlined.SettingsSuggest),
-        Triple(ThemeMode.LIGHT, "Hell", Icons.Outlined.LightMode),
-        Triple(ThemeMode.DARK, "Dunkel", Icons.Outlined.DarkMode),
+        Triple(ThemeMode.SYSTEM, stringResource(R.string.appearance_system), Icons.Outlined.SettingsSuggest),
+        Triple(ThemeMode.LIGHT, stringResource(R.string.appearance_light), Icons.Outlined.LightMode),
+        Triple(ThemeMode.DARK, stringResource(R.string.appearance_dark), Icons.Outlined.DarkMode),
     )
     Row(
         Modifier.fillMaxWidth(),
@@ -107,8 +108,8 @@ fun AppearanceSection(
     }
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         SwitchRow(
-            title = "Farben vom Hintergrundbild",
-            hint = "Material You statt Petze-Türkis.",
+            title = stringResource(R.string.appearance_dynamic_title),
+            hint = stringResource(R.string.appearance_dynamic_hint),
             checked = dynamicColor,
             onToggle = { onDynamicColor(!dynamicColor) }
         )
@@ -130,9 +131,8 @@ fun UpdateSection(onOpenFailed: () -> Unit) {
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
     SwitchRow(
-        title = "Nach Updates suchen",
-        hint = "Einmal am Tag fragt die App kleene-petze.celox.io nach der neuesten Version — " +
-            "ohne Kennung, ohne Nachrichten. Ausgeschaltet geht die App nie ins Netz.",
+        title = stringResource(R.string.update_check_title),
+        hint = stringResource(R.string.update_check_hint),
         checked = on,
         onToggle = {
             val enable = !on
@@ -145,19 +145,19 @@ fun UpdateSection(onOpenFailed: () -> Unit) {
     if (on) {
         Text(
             when {
-                newer != null -> "Version $newer ist verfügbar."
-                latest != null -> "Aktuell — neueste Version ist ${AppVersion.display(latest)}."
-                else -> "Noch keine Prüfung abgeschlossen."
+                newer != null -> stringResource(R.string.update_status_available, newer)
+                latest != null -> stringResource(R.string.update_status_current, AppVersion.display(latest))
+                else -> stringResource(R.string.update_status_none)
             },
             style = MaterialTheme.typography.bodySmall,
             color = if (newer != null) MaterialTheme.colorScheme.primary
             else MaterialTheme.colorScheme.onSurfaceVariant
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TextButton(onClick = { UpdateScheduler.checkNow(context) }) { Text("Jetzt prüfen") }
+            TextButton(onClick = { UpdateScheduler.checkNow(context) }) { Text(stringResource(R.string.update_check_now)) }
             if (newer != null) {
                 TextButton(onClick = { if (!UpdateChecker.openDownload(context)) onOpenFailed() }) {
-                    Text("Herunterladen")
+                    Text(stringResource(R.string.update_download))
                 }
             }
         }
@@ -183,32 +183,32 @@ fun AboutSection(onOpenFailed: () -> Unit) {
             Icon(painterResource(R.drawable.ic_launcher_foreground), null, tint = Color.Unspecified, modifier = Modifier.size(56.dp))
         }
         Column {
-            Text("Kleene Petze", style = MaterialTheme.typography.titleMediumEmphasized)
+            Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleMediumEmphasized)
             Text(
-                "Version ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+                stringResource(R.string.about_version, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
     Spacer(Modifier.height(12.dp))
-    Text("Gemacht von ${AboutLinks.AUTHOR}", style = MaterialTheme.typography.bodyLarge)
+    Text(stringResource(R.string.about_made_by, AboutLinks.AUTHOR), style = MaterialTheme.typography.bodyLarge)
     Text(
-        "Petzt alles. Vergisst nie. — Alles bleibt verschlüsselt auf deinem Gerät.",
+        stringResource(R.string.about_tagline_long),
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
 
     Spacer(Modifier.height(12.dp))
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        LinkChip("Website", Icons.Outlined.Public) { open(AboutLinks.PRODUCT_URL) }
+        LinkChip(stringResource(R.string.about_link_website), Icons.Outlined.Public) { open(AboutLinks.PRODUCT_URL) }
         LinkChip(AboutLinks.WEBSITE_LABEL, Icons.Outlined.Language) { open(AboutLinks.WEBSITE_URL) }
-        LinkChip("Quelltext", Icons.Outlined.Code) { open(AboutLinks.REPO_URL) }
-        LinkChip("Änderungen", Icons.Outlined.History) { open(AboutLinks.CHANGELOG_URL) }
+        LinkChip(stringResource(R.string.about_link_source), Icons.Outlined.Code) { open(AboutLinks.REPO_URL) }
+        LinkChip(stringResource(R.string.about_link_changelog), Icons.Outlined.History) { open(AboutLinks.CHANGELOG_URL) }
         LinkChip(AboutLinks.LICENSE_NAME, Icons.Outlined.Description) { open(AboutLinks.LICENSE_URL) }
     }
     Text(
-        "Freie Software unter der ${AboutLinks.LICENSE_NAME}.",
+        stringResource(R.string.about_license, AboutLinks.LICENSE_NAME),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
@@ -226,11 +226,10 @@ fun AboutSection(onOpenFailed: () -> Unit) {
     ) {
         Icon(Icons.Outlined.Favorite, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
         Spacer(Modifier.size(ButtonDefaults.IconSpacing))
-        Text("Mit PayPal spenden")
+        Text(stringResource(R.string.about_donate))
     }
     Text(
-        "Kleene Petze ist kostenlos und ohne Werbung. Wenn sie dir etwas gerettet hat, " +
-            "freue ich mich über einen Kaffee.",
+        stringResource(R.string.about_donate_hint),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )

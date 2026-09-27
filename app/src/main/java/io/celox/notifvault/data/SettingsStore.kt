@@ -78,7 +78,7 @@ class SettingsStore(private val context: Context) {
 
     /** Light/dark choice (System follows the phone). Stored by enum name; unknown → System. */
     val themeMode: Flow<ThemeMode> = context.dataStore.data
-        .map { p -> ThemeMode.entries.firstOrNull { it.name == p[themeModeKey] } ?: ThemeMode.SYSTEM }
+        .map { ThemeMode.fromName(it[themeModeKey]) }
 
     /** Material You wallpaper colors instead of the teal brand scheme (Android 12+). Opt-in. */
     val dynamicColor: Flow<Boolean> = context.dataStore.data

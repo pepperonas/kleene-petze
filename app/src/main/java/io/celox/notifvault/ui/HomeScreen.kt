@@ -56,6 +56,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import io.celox.notifvault.R
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -101,17 +104,17 @@ fun HomeScreen(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             LargeFlexibleTopAppBar(
-                title = { Text("Kleene Petze") },
+                title = { Text(stringResource(R.string.app_name)) },
                 subtitle = {
-                    Text(if (total == 1) "1 Nachricht gesichert" else "$total Nachrichten gesichert")
+                    Text(pluralStringResource(R.plurals.home_saved_count, total, total))
                 },
                 scrollBehavior = scrollBehavior,
                 actions = {
                     IconButton(onClick = onOpenFlagged) {
-                        Icon(Icons.Default.History, "Aufgedeckt")
+                        Icon(Icons.Default.History, stringResource(R.string.home_cd_flagged))
                     }
                     IconButton(onClick = onOpenSettings) {
-                        Icon(Icons.Default.Settings, "Einstellungen")
+                        Icon(Icons.Default.Settings, stringResource(R.string.home_cd_settings))
                     }
                 }
             )
@@ -120,19 +123,18 @@ fun HomeScreen(
         Column(Modifier.padding(pad).fillMaxSize()) {
             if (!hasAccess) {
                 CaptureBanner(
-                    text = "Benachrichtigungszugriff fehlt — es wird nichts mehr gesichert.",
+                    text = stringResource(R.string.home_banner_no_access),
                     error = true,
-                    actionLabel = "Erlauben",
+                    actionLabel = stringResource(R.string.home_banner_allow),
                     onAction = onGrantAccess
                 )
             } else if (!listenerConnected) {
                 // Not a passing hiccup: after an app update or an OEM process kill the binding
                 // stays gone until something asks for it back, so offer that here.
                 CaptureBanner(
-                    text = "Erfassung inaktiv — Android hat den Dienst getrennt " +
-                        "(typisch nach einem Update oder Neustart). Es wird nichts gesichert.",
+                    text = stringResource(R.string.home_banner_unbound),
                     error = true,
-                    actionLabel = "Neu verbinden",
+                    actionLabel = stringResource(R.string.home_banner_reconnect),
                     onAction = { ListenerWatchdog.requestRebind(context) }
                 )
             }
@@ -143,9 +145,9 @@ fun HomeScreen(
                 exit = shrinkVertically(Motion.spatial()) + fadeOut(Motion.effects())
             ) {
                 CaptureBanner(
-                    text = "Kleene Petze ${newerVersion.orEmpty()} ist verfügbar.",
+                    text = stringResource(R.string.home_update_available, newerVersion.orEmpty()),
                     error = false,
-                    actionLabel = "Laden",
+                    actionLabel = stringResource(R.string.home_update_download),
                     onAction = { UpdateChecker.openDownload(context) }
                 )
             }
@@ -154,7 +156,7 @@ fun HomeScreen(
                 value = query,
                 onValueChange = { query = it },
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-                placeholder = { Text("Nachrichten durchsuchen…") },
+                placeholder = { Text(stringResource(R.string.home_search_placeholder)) },
                 leadingIcon = { Icon(Icons.Default.Search, null) },
                 singleLine = true,
                 shape = MaterialTheme.shapes.extraLarge
@@ -175,7 +177,7 @@ fun HomeScreen(
                     FilterChip(
                         selected = appFilter.isEmpty(),
                         onClick = { appFilter = "" },
-                        label = { Text("Alle") }
+                        label = { Text(stringResource(R.string.home_filter_all)) }
                     )
                     for ((pkg, label) in apps) {
                         FilterChip(
@@ -262,7 +264,7 @@ private fun SearchResults(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Icon(Icons.Default.SearchOff, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("Keine Treffer für „$query\"", style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.home_search_no_results, query), style = MaterialTheme.typography.titleMedium)
             }
         }
         return
@@ -270,7 +272,11 @@ private fun SearchResults(
     LazyColumn(Modifier.fillMaxSize()) {
         item {
             Text(
-                "${results.size} Treffer${if (results.size == 500) "+" else ""}",
+                if (results.size == 500) {
+                    pluralStringResource(R.plurals.home_search_hits_capped, results.size, results.size)
+                } else {
+                    pluralStringResource(R.plurals.home_search_hits, results.size, results.size)
+                },
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
@@ -435,13 +441,13 @@ private fun EmptyState(total: Int) {
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Icon(Icons.Default.Inbox, null, tint = MaterialTheme.colorScheme.primary)
-            Text("Noch keine Nachrichten gesichert", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.home_empty_title), style = MaterialTheme.typography.titleMedium)
             Text(
-                "Sobald eine WhatsApp-Benachrichtigung eingeht, taucht sie hier auf.",
+                stringResource(R.string.home_empty_body),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            if (total > 0) Text("Gespeichert: $total", style = MaterialTheme.typography.labelMedium)
+            if (total > 0) Text(stringResource(R.string.home_empty_total, total), style = MaterialTheme.typography.labelMedium)
         }
     }
 }

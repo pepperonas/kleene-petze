@@ -32,7 +32,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import io.celox.notifvault.R
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -57,14 +60,14 @@ fun FlaggedScreen(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             MediumFlexibleTopAppBar(
-                title = { Text("Aufgedeckt") },
+                title = { Text(stringResource(R.string.flagged_title)) },
                 subtitle = {
-                    Text("${flagged.size} gelöschte & bearbeitete Nachricht${if (flagged.size == 1) "" else "en"}")
+                    Text(pluralStringResource(R.plurals.flagged_count, flagged.size, flagged.size))
                 },
                 scrollBehavior = scrollBehavior,
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Zurück")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.flagged_back))
                     }
                 }
             )
@@ -125,11 +128,11 @@ private fun FlaggedRow(m: CapturedMessage, onClick: () -> Unit) {
             Spacer(Modifier.padding(top = 4.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (m.deletionSuspected) {
-                    FlagBadge("🗑 gelöscht", error = true)
+                    FlagBadge(stringResource(R.string.flagged_badge_deleted), error = true)
                     Spacer(Modifier.width(6.dp))
                 }
                 if (m.editSuperseded) {
-                    FlagBadge("✏️ bearbeitet", error = false)
+                    FlagBadge(stringResource(R.string.flagged_badge_edited), error = false)
                     Spacer(Modifier.width(6.dp))
                 }
                 Text(
@@ -168,10 +171,9 @@ private fun EmptyFlagged(modifier: Modifier = Modifier) {
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Icon(Icons.Outlined.VisibilityOff, null, tint = MaterialTheme.colorScheme.primary)
-            Text("Noch nichts aufgedeckt", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.flagged_empty_title), style = MaterialTheme.typography.titleMedium)
             Text(
-                "Löscht oder bearbeitet jemand eine Nachricht, die schon gesichert wurde, " +
-                    "erscheint das Original hier.",
+                stringResource(R.string.flagged_empty_body),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

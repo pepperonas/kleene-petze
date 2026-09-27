@@ -4,6 +4,22 @@ Alle nennenswerten Änderungen an Kleene Petze. Format nach
 [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionierung nach
 [Semantic Versioning](https://semver.org/lang/de/).
 
+## [1.11.0] - 2026-09-27
+
+### Neu
+- **Englisch**: Die App gibt es jetzt auf Englisch und Deutsch. Die Sprache des Handys entscheidet,
+  jede andere Sprache bekommt Englisch; unter Android 13+ lässt sich die App-Sprache auch einzeln
+  einstellen (Einstellungen → Apps → Kleene Petze → Sprache). Datums- und Zeitangaben folgen mit.
+- README neu: auf Englisch (`README.md`), die deutsche Fassung liegt in `README.de.md`; mit
+  Screenshots aus der App in beiden Sprachen, PayPal-Spendenknopf und Badges für Version,
+  Unit-Tests und Codezeilen — erzeugt von `scripts/update-badges.py`, ein Test hält sie aktuell.
+- Die Produktseite zeigt Codezeilen und Unit-Tests, direkt aus dem Repository.
+
+### Behoben
+- Deutsche Einzahl: „1 gespeichertes Bild wird entfernt“ statt „1 gespeicherte Bild werden entfernt“,
+  ebenso beim Löschen eines Chats mit nur einer Nachricht.
+- Speichergrößen verwenden das Dezimaltrennzeichen der Sprache („1,5 MB“ / „1.5 MB“).
+
 ## [1.10.0] - 2026-09-27
 
 ### Neu

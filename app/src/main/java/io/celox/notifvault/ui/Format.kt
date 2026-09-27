@@ -6,12 +6,51 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
-private val clockFmt = SimpleDateFormat("HH:mm", Locale.GERMANY)
-private val shortWeekdayFmt = SimpleDateFormat("EEE", Locale.GERMANY)   // "Mi."
-private val weekdayFmt = SimpleDateFormat("EEEE", Locale.GERMANY)       // "Mittwoch"
-private val shortDateFmt = SimpleDateFormat("dd.MM.yy", Locale.GERMANY)
-private val fullDateFmt = SimpleDateFormat("d. MMMM yyyy", Locale.GERMANY)
-private val fullDateTimeFmt = SimpleDateFormat("dd.MM.yy HH:mm", Locale.GERMANY)
+/**
+ * The words and date patterns of the relative-time helpers, per UI language. German where the
+ * device speaks German, English everywhere else — the same rule Android applies to the string
+ * resources (values-de/ vs. values/), so the dates never speak a different language than the
+ * rest of the screen. Plain Kotlin, so the tests can pin both languages.
+ */
+data class FormatWords(
+    val locale: Locale,
+    val today: String,
+    val yesterday: String,
+    val never: String,
+    val justNow: String,
+    val minutesAgo: (Long) -> String,
+    val hoursAgo: (Long) -> String,
+    val clock: String,
+    val shortWeekday: String,
+    val weekday: String,
+    val shortDate: String,
+    val fullDate: String,
+    val fullDateTime: String,
+) {
+    companion object {
+        val GERMAN = FormatWords(
+            locale = Locale.GERMANY,
+            today = "Heute", yesterday = "Gestern", never = "noch nie", justNow = "gerade eben",
+            minutesAgo = { "vor $it min" }, hoursAgo = { "vor $it h" },
+            clock = "HH:mm", shortWeekday = "EEE", weekday = "EEEE",
+            shortDate = "dd.MM.yy", fullDate = "d. MMMM yyyy", fullDateTime = "dd.MM.yy HH:mm",
+        )
+        val ENGLISH = FormatWords(
+            locale = Locale.UK,
+            today = "Today", yesterday = "Yesterday", never = "never", justNow = "just now",
+            minutesAgo = { "$it min ago" }, hoursAgo = { "$it h ago" },
+            clock = "HH:mm", shortWeekday = "EEE", weekday = "EEEE",
+            shortDate = "dd/MM/yy", fullDate = "d MMMM yyyy", fullDateTime = "dd/MM/yy HH:mm",
+        )
+
+        fun of(locale: Locale): FormatWords = if (locale.language == "de") GERMAN else ENGLISH
+    }
+
+    fun format(pattern: String, millis: Long): String = SimpleDateFormat(pattern, locale).format(Date(millis))
+}
+
+/** The words for the current UI language (read on every call — the language can change at runtime). */
+private fun words(): FormatWords = FormatWords.of(Locale.getDefault())
 
 private const val DAY_MS = 86_400_000L
 
@@ -32,45 +71,60 @@ private fun daysAgo(millis: Long, now: Long = System.currentTimeMillis()): Int =
     ((startOfDay(now) - startOfDay(millis)) / DAY_MS).toInt()
 
 /** Just the clock, for inside a chat bubble. */
-fun formatClock(millis: Long): String = clockFmt.format(Date(millis))
+fun formatClock(millis: Long, w: FormatWords = words()): String = w.format(w.clock, millis)
 
 /** Centered date-separator label between day groups in a conversation. */
-fun formatDayHeader(millis: Long): String = when (daysAgo(millis)) {
-    0 -> "Heute"
-    1 -> "Gestern"
-    in 2..6 -> weekdayFmt.format(Date(millis))
-    else -> fullDateFmt.format(Date(millis))
+fun formatDayHeader(millis: Long, w: FormatWords = words()): String = when (daysAgo(millis)) {
+    0 -> w.today
+    1 -> w.yesterday
+    in 2..6 -> w.format(w.weekday, millis)
+    else -> w.format(w.fullDate, millis)
 }
 
 /** Compact relative time for list rows (conversation overview, search results). */
-fun formatListTime(millis: Long): String = when (daysAgo(millis)) {
-    0 -> clockFmt.format(Date(millis))
-    1 -> "Gestern"
-    in 2..6 -> shortWeekdayFmt.format(Date(millis))
-    else -> shortDateFmt.format(Date(millis))
+fun formatListTime(millis: Long, w: FormatWords = words()): String = when (daysAgo(millis)) {
+    0 -> w.format(w.clock, millis)
+    1 -> w.yesterday
+    in 2..6 -> w.format(w.shortWeekday, millis)
+    else -> w.format(w.shortDate, millis)
 }
 
 /** Full, unambiguous date+time (used in the search-result detail line). */
-fun formatTimestamp(millis: Long): String = when (daysAgo(millis)) {
-    0 -> "Heute ${clockFmt.format(Date(millis))}"
-    1 -> "Gestern ${clockFmt.format(Date(millis))}"
-    else -> fullDateTimeFmt.format(Date(millis))
+fun formatTimestamp(millis: Long, w: FormatWords = words()): String = when (daysAgo(millis)) {
+    0 -> "${w.today} ${w.format(w.clock, millis)}"
+    1 -> "${w.yesterday} ${w.format(w.clock, millis)}"
+    else -> w.format(w.fullDateTime, millis)
 }
 
 /**
- * Relative age of an event ("vor 5 min"), used for the capture heartbeat in Settings; falls
- * back to the absolute timestamp once it is more than a day old. [millis] <= 0 means "never".
- * A timestamp in the future (clock change) reads as "gerade eben" rather than a negative age.
+ * Relative age of an event ("vor 5 min" / "5 min ago"), used for the capture heartbeat in
+ * Settings; falls back to the absolute timestamp once it is more than a day old. [millis] <= 0
+ * means "never". A timestamp in the future (clock change) reads as "just now" rather than a
+ * negative age.
  */
-fun formatRelativeSince(millis: Long, now: Long = System.currentTimeMillis()): String {
-    if (millis <= 0) return "noch nie"
+fun formatRelativeSince(
+    millis: Long,
+    now: Long = System.currentTimeMillis(),
+    w: FormatWords = words()
+): String {
+    if (millis <= 0) return w.never
     val mins = (now - millis) / 60_000
     return when {
-        mins < 1 -> "gerade eben"
-        mins < 60 -> "vor $mins min"
-        mins < 24 * 60 -> "vor ${mins / 60} h"
-        else -> formatTimestamp(millis)
+        mins < 1 -> w.justNow
+        mins < 60 -> w.minutesAgo(mins)
+        mins < 24 * 60 -> w.hoursAgo(mins / 60)
+        else -> formatTimestamp(millis, w)
     }
+}
+
+/**
+ * Storage sizes in the units people read them in — MB once it is worth mentioning, with the
+ * decimal separator of the UI language ("1,5 MB" in German, "1.5 MB" in English).
+ */
+fun formatBytes(bytes: Long, w: FormatWords = words()): String = when {
+    bytes >= 1024L * 1024L -> String.format(w.locale, "%.1f MB", bytes / (1024.0 * 1024.0))
+    bytes >= 1024L -> "${bytes / 1024} KB"
+    else -> "$bytes B"
 }
 
 // ---- Identity colors / initials -------------------------------------------
@@ -91,7 +145,7 @@ fun initials(name: String): String {
     val parts = name.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
     return when {
         parts.isEmpty() -> "?"
-        parts.size == 1 -> parts[0].take(1).uppercase(Locale.GERMANY)
-        else -> (parts.first().take(1) + parts.last().take(1)).uppercase(Locale.GERMANY)
+        parts.size == 1 -> parts[0].take(1).uppercase(Locale.ROOT)
+        else -> (parts.first().take(1) + parts.last().take(1)).uppercase(Locale.ROOT)
     }
 }

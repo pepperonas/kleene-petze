@@ -3,6 +3,7 @@ package io.celox.notifvault.util
 import android.content.Context
 import android.content.Intent
 import androidx.core.content.FileProvider
+import io.celox.notifvault.R
 import io.celox.notifvault.data.CapturedMessage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -36,7 +37,7 @@ suspend fun shareExport(
         putExtra(Intent.EXTRA_STREAM, uri)
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
     }
-    context.startActivity(Intent.createChooser(share, "Export teilen").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    context.startActivity(Intent.createChooser(share, context.getString(R.string.transfer_share_chooser)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
 }
 
 /**
@@ -44,8 +45,12 @@ suspend fun shareExport(
  * receiving app reads it, so it cannot be deleted right after the share sheet opens; cleaning up
  * on the next export and at app start bounds its life to "until the app is used again".
  */
-fun clearShareExports(context: Context): File {
-    val dir = File(context.cacheDir, "exports")
-    dir.listFiles()?.forEach { it.delete() }
+fun clearShareExports(context: Context): File = clearExportsIn(File(context.cacheDir, EXPORT_DIR))
+
+internal const val EXPORT_DIR = "exports"
+
+/** The file-level half of [clearShareExports]: empties [dir] (files only), keeps the folder. */
+internal fun clearExportsIn(dir: File): File {
+    dir.listFiles()?.forEach { if (it.isFile) it.delete() }
     return dir
 }

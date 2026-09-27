@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Shared -->
+    <string name="general_tagline">Snitches on everything. Forgets nothing.</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_mascot_description">A parrot with headphones and a monocle sitting on a safe</string>
+    <string name="onboarding_intro">Permanently stores incoming message notifications, encrypted — even if the sender deletes them later.</string>
+    <string name="onboarding_access_title">Notification access</string>
+    <string name="onboarding_access_body">Allow access so Kleene Petze can read and save incoming messages.</string>
+    <string name="onboarding_access_reopen">Open again</string>
+    <string name="onboarding_access_grant">Grant access</string>
+    <string name="onboarding_battery_title">Exempt from battery optimization</string>
+    <string name="onboarding_battery_body">Samsung kills background services very aggressively. Without an exemption you\'ll miss messages.</string>
+    <string name="onboarding_battery_action">Set up exemption</string>
+    <string name="onboarding_local_title">Local &amp; encrypted</string>
+    <string name="onboarding_local_body">All data stays on the device (SQLCipher / AES-256). No cloud, no tracking, no network — unless you turn on the update check in the settings.</string>
+    <string name="onboarding_continue">Get started</string>
+
+    <!-- Lock -->
+    <string name="lock_prompt_title">Unlock Kleene Petze</string>
+    <string name="lock_locked_title">Kleene Petze is locked</string>
+    <string name="lock_unlock">Unlock</string>
+
+    <!-- Appearance -->
+    <string name="appearance_system">System</string>
+    <string name="appearance_light">Light</string>
+    <string name="appearance_dark">Dark</string>
+    <string name="appearance_dynamic_title">Colors from wallpaper</string>
+    <string name="appearance_dynamic_hint">Material You instead of Petze teal.</string>
+
+    <!-- Update check -->
+    <string name="update_check_title">Check for updates</string>
+    <string name="update_check_hint">Once a day the app asks kleene-petze.celox.io for the latest version — no identifier, no messages. When off, the app never goes online.</string>
+    <string name="update_status_available">Version %1$s is available.</string>
+    <string name="update_status_current">Up to date — latest version is %1$s.</string>
+    <string name="update_status_none">No check completed yet.</string>
+    <string name="update_check_now">Check now</string>
+    <string name="update_download">Download</string>
+
+    <!-- About -->
+    <string name="about_version">Version %1$s (%2$d)</string>
+    <string name="about_made_by">Made by %1$s</string>
+    <string name="about_tagline_long">Snitches on everything. Forgets nothing. — Everything stays encrypted on your device.</string>
+    <string name="about_link_website">Website</string>
+    <string name="about_link_source">Source code</string>
+    <string name="about_link_changelog">Changelog</string>
+    <string name="about_license">Free software under the %1$s.</string>
+    <string name="about_donate">Donate with PayPal</string>
+    <string name="about_donate_hint">Kleene Petze is free and has no ads. If it saved something for you, I\'d be glad about a coffee.</string>
+
+    <!-- Export / import -->
+    <plurals name="transfer_export_encrypted">
+        <item quantity="one">%1$d message exported encrypted. Keep the passphrase safe — without it the file is worthless.</item>
+        <item quantity="other">%1$d messages exported encrypted. Keep the passphrase safe — without it the file is worthless.</item>
+    </plurals>
+    <plurals name="transfer_export_plain">
+        <item quantity="one">%1$d message exported as %2$s. The file is unencrypted and readable as plain text.</item>
+        <item quantity="other">%1$d messages exported as %2$s. The file is unencrypted and readable as plain text.</item>
+    </plurals>
+    <string name="transfer_export_failed">Export failed: %1$s</string>
+    <string name="transfer_write_failed">File could not be written</string>
+    <string name="transfer_read_failed">File could not be read</string>
+    <plurals name="transfer_import_done">
+        <item quantity="one">Import complete: %1$d message added, %2$d were already present.</item>
+        <item quantity="other">Import complete: %1$d messages added, %2$d were already present.</item>
+    </plurals>
+    <string name="transfer_error_decrypt">Decryption failed — wrong passphrase or damaged file.</string>
+    <string name="transfer_error_unreadable">File could not be read: %1$s</string>
+    <string name="transfer_error_import">Import failed: %1$s</string>
+    <string name="transfer_share_chooser">Share export</string>
+</resources>

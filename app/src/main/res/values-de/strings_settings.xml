@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_title">Einstellungen</string>
+    <string name="settings_subtitle_version">Kleene Petze %1$s</string>
+    <string name="settings_back">Zurück</string>
+    <string name="settings_no_file_picker">Kein Dateiauswahl-Dialog verfügbar.</string>
+    <string name="settings_no_browser">Kein Browser gefunden.</string>
+
+    <!-- Status -->
+    <string name="settings_section_status">Status</string>
+    <string name="settings_status_access">Benachrichtigungszugriff</string>
+    <string name="settings_status_access_granted">erteilt</string>
+    <string name="settings_status_access_missing">fehlt</string>
+    <string name="settings_status_service">Erfassungsdienst</string>
+    <string name="settings_status_service_connected">verbunden</string>
+    <string name="settings_status_service_disconnected">nicht verbunden</string>
+    <string name="settings_status_last_capture">Letzte Erfassung: %1$s</string>
+    <string name="settings_status_rebind_requested">Neuverbindung angefordert. Der Status oben springt auf „verbunden“, sobald das System den Dienst gebunden hat — das dauert einen Moment.</string>
+    <string name="settings_status_rebind_no_access">Ohne Benachrichtigungszugriff kann der Dienst nicht verbunden werden.</string>
+    <string name="settings_status_rebind">Erfassung neu verbinden</string>
+    <string name="settings_status_open">Öffnen</string>
+
+    <!-- Autostart -->
+    <string name="settings_section_autostart">Autostart &amp; Selbstheilung</string>
+    <string name="settings_autostart_toggle">Nach Neustart automatisch starten</string>
+    <string name="settings_autostart_hint">Verbindet die Erfassung nach einem Neustart, nach einem App-Update und alle 15 Minuten neu. Android trennt den Dienst sonst still — und meldet das nicht.</string>
+    <string name="settings_autostart_last_check">Letzte Prüfung: %1$s</string>
+    <string name="settings_autostart_overdue">Die Prüfung läuft seit Stunden nicht mehr — das Energiesparen hält die App an. Nimm sie davon aus, sonst kann auch die Erfassung nicht zurückkommen.</string>
+    <string name="settings_autostart_battery_exempt">Von Akku-Optimierung ausnehmen</string>
+
+    <!-- Monitored apps -->
+    <string name="settings_section_monitored">Überwachte Apps</string>
+    <string name="settings_capture_all">Alle Apps erfassen</string>
+
+    <!-- Pictures -->
+    <string name="settings_section_images">Bilder</string>
+    <string name="settings_images_toggle">Bilder aus Benachrichtigungen sichern</string>
+    <string name="settings_images_hint">Kommentare unter Bildern werden immer gesichert — sie sind der Nachrichtentext. Zusätzlich lässt sich die Bildvorschau speichern, die die Benachrichtigung mitbringt. Das ist nicht das Original aus WhatsApp, sondern die kleinere Vorschau; an die Originaldatei kommt keine App heran.</string>
+    <string name="settings_images_none">Keine Bilder gespeichert.</string>
+    <plurals name="settings_images_stored">
+        <item quantity="one">%1$d Bild · %2$s (verschlüsselt in der Datenbank)</item>
+        <item quantity="other">%1$d Bilder · %2$s (verschlüsselt in der Datenbank)</item>
+    </plurals>
+    <string name="settings_images_delete_all">Alle Bilder löschen</string>
+    <string name="settings_images_confirm_title">Alle Bilder löschen?</string>
+    <plurals name="settings_images_confirm_text">
+        <item quantity="one">%1$d gespeichertes Bild (%2$s) wird entfernt. Die Nachrichten und Kommentare bleiben erhalten.</item>
+        <item quantity="other">%1$d gespeicherte Bilder (%2$s) werden entfernt. Die Nachrichten und Kommentare bleiben erhalten.</item>
+    </plurals>
+    <string name="settings_images_confirm_button">Bilder löschen</string>
+
+    <!-- Security -->
+    <string name="settings_section_security">Sicherheit</string>
+    <string name="settings_biometric_lock">App mit Biometrie sperren</string>
+    <string name="settings_security_hint">Daten liegen verschlüsselt (SQLCipher / AES-256) lokal auf dem Gerät.</string>
+
+    <!-- Appearance -->
+    <string name="settings_section_appearance">Erscheinungsbild</string>
+
+    <!-- Export & Import -->
+    <plurals name="settings_section_export">
+        <item quantity="one">Export &amp; Import (%1$d Nachricht)</item>
+        <item quantity="other">Export &amp; Import (%1$d Nachrichten)</item>
+    </plurals>
+    <string name="settings_export_hint">Das ganze Archiv als Datei sichern und wieder einlesen. Verschlüsselung ist optional — verschlüsselt (.kpvault) ist die Datei ohne Passphrase wertlos, JSON und CSV sind lesbar und lassen sich genauso zurückspielen. Gespeicherte Bilder bleiben auf dem Gerät und sind nicht Teil des Exports.</string>
+    <string name="settings_export_busy">Wird verarbeitet…</string>
+    <string name="settings_export_button">Archiv exportieren…</string>
+    <string name="settings_import_button">Aus Datei importieren…</string>
+    <string name="settings_import_hint">Ein Import fügt nur hinzu: bereits vorhandene Nachrichten bleiben unverändert, dieselbe Datei zweimal einzulesen ändert nichts.</string>
+
+    <!-- Data -->
+    <string name="settings_section_data">Daten</string>
+    <string name="settings_clear_all">Alle Daten löschen</string>
+    <string name="settings_clear_confirm_title">Alle Daten löschen?</string>
+    <plurals name="settings_clear_confirm_text">
+        <item quantity="one">Die %1$d gespeicherte Nachricht wird unwiderruflich gelöscht. Dies kann nicht rückgängig gemacht werden.</item>
+        <item quantity="other">Alle %1$d gespeicherten Nachrichten werden unwiderruflich gelöscht. Dies kann nicht rückgängig gemacht werden.</item>
+    </plurals>
+    <string name="settings_clear_confirm_button">Alles löschen</string>
+
+    <!-- Updates / Notes / About -->
+    <string name="settings_section_updates">Updates</string>
+    <string name="settings_section_notes">Hinweise</string>
+    <string name="settings_notes_text">• Sprachnachrichten, Videos und Originaldateien kommen in keiner Benachrichtigung vor und können daher nicht gesichert werden — Bilder nur als Vorschau.\n• Stummgeschaltete Chats und Nachrichten, die du im offenen Chat empfängst, lösen oft keine Benachrichtigung aus und werden daher nicht erfasst.</string>
+    <string name="settings_section_about">Über die App</string>
+    <string name="settings_footer">© 2026 Martin Pfeffer | celox.io</string>
+
+    <!-- Common -->
+    <string name="settings_cancel">Abbrechen</string>
+    <string name="settings_ok">OK</string>
+    <string name="settings_message_title">Hinweis</string>
+
+    <!-- Retention -->
+    <string name="settings_retention">Aufbewahrung</string>
+    <string name="settings_retention_forever">Unbegrenzt</string>
+    <string name="settings_retention_forever_default">Unbegrenzt (Standard)</string>
+    <plurals name="settings_retention_days">
+        <item quantity="one">%1$d Tag</item>
+        <item quantity="other">%1$d Tage</item>
+    </plurals>
+    <string name="settings_retention_dialog_title">Aufbewahrungsdauer</string>
+    <string name="settings_retention_dialog_hint">Ältere Nachrichten werden automatisch und endgültig gelöscht — auch aufgedeckte (gelöschte/bearbeitete).</string>
+
+    <!-- Export format dialog -->
+    <string name="settings_export_dialog_title">Archiv exportieren</string>
+    <string name="settings_format_encrypted">Verschlüsselt (.kpvault)</string>
+    <string name="settings_format_encrypted_desc">AES-256 mit Passphrase. Empfohlen, wenn die Datei das Gerät verlässt — ohne Passphrase ist sie für niemanden lesbar, auch nicht für dich.</string>
+    <string name="settings_format_json">JSON (unverschlüsselt)</string>
+    <string name="settings_format_json_desc">Vollständig und wieder importierbar, zusätzlich mit anderen Programmen auswertbar. Der Inhalt steht im Klartext in der Datei.</string>
+    <string name="settings_format_csv">CSV (unverschlüsselt)</string>
+    <string name="settings_format_csv_desc">Für Tabellenprogramme. Ebenfalls vollständig und wieder importierbar, ebenfalls im Klartext.</string>
+
+    <!-- Import preview -->
+    <string name="settings_import_kind_encrypted">Verschlüsselte Sicherung</string>
+    <string name="settings_import_kind_json">JSON-Export</string>
+    <string name="settings_import_kind_csv">CSV-Export</string>
+    <string name="settings_import_date_pattern">dd.MM.yyyy</string>
+    <string name="settings_import_title">Import prüfen</string>
+    <string name="settings_import_detected">Erkannt: %1$s</string>
+    <string name="settings_import_count">Enthaltene Nachrichten: %1$d</string>
+    <string name="settings_import_range">Zeitraum: %1$s</string>
+    <string name="settings_import_created">Erstellt: %1$s</string>
+    <string name="settings_import_preview_hint">Der Import fügt nur hinzu. Bereits vorhandene Nachrichten bleiben unverändert, nichts wird überschrieben oder gelöscht.</string>
+    <string name="settings_import_confirm">Importieren</string>
+
+    <!-- Passphrase dialogs -->
+    <string name="settings_export_pass_title">Export verschlüsseln</string>
+    <string name="settings_export_pass_hint">Mindestens %1$d Zeichen. Ohne diese Passphrase lässt sich die Datei nie wieder öffnen.</string>
+    <string name="settings_import_pass_title">Datei entschlüsseln</string>
+    <string name="settings_import_pass_hint">Passphrase der verschlüsselten Datei eingeben.</string>
+    <string name="settings_passphrase">Passphrase</string>
+    <string name="settings_passphrase_repeat">Passphrase wiederholen</string>
+    <string name="settings_continue">Weiter</string>
+</resources>

@@ -73,7 +73,14 @@ val ExpressiveShapes = Shapes(
 )
 
 /** Light/dark choice from Settings; [SYSTEM] follows the phone. Stored by name. */
-enum class ThemeMode { SYSTEM, LIGHT, DARK }
+enum class ThemeMode {
+    SYSTEM, LIGHT, DARK;
+
+    companion object {
+        /** The stored name back to a mode; anything unknown (or nothing stored yet) is [SYSTEM]. */
+        fun fromName(name: String?): ThemeMode = entries.firstOrNull { it.name == name } ?: SYSTEM
+    }
+}
 
 /**
  * Material 3 Expressive: spring-based [MotionScheme.expressive] (spatial motion may overshoot,

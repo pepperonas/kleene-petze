@@ -22,9 +22,12 @@ android {
         applicationId = "io.celox.notifvault"
         minSdk = 26
         targetSdk = 35
-        versionCode = 21
-        versionName = "1.10.0"
+        versionCode = 22
+        versionName = "1.11.0"
         vectorDrawables { useSupportLibrary = true }
+        // The UI ships in English (default) and German. Without this filter the Material libraries
+        // would bring their own French, Spanish, … texts into an otherwise English screen.
+        resourceConfigurations += listOf("en", "de")
     }
 
     signingConfigs {

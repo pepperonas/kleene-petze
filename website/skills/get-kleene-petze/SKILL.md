@@ -38,7 +38,7 @@ page itself, browsers with WebMCP expose the same data as the tools `get_latest_
 - Only messages that arrive as a notification on this phone are saved: muted chats and messages you receive while the chat is open often post none.
 - A message deleted after you have already read it cannot be recovered — there is no notification left to keep.
 - Voice messages, videos and original files are never part of a notification; pictures are kept only as the smaller preview.
-- The user interface is German.
+- The interface is available in English and German only.
 - It does not download or install updates by itself — it only tells you, and you install the new APK over the old one.
 
 More: [product page](https://kleene-petze.celox.io/) · [Markdown version](https://kleene-petze.celox.io/index.md) · [changelog](https://kleene-petze.celox.io/changelog.md) · [source](https://github.com/pepperonas/kleene-petze)

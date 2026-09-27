@@ -41,14 +41,15 @@
       "Self-healing capture: reconnects after reboots and app updates, with a status check in Settings",
       "Material 3 Expressive interface with light, dark and system theme",
       "Opt-in update check: a daily look at the newest version, a notification when one is out",
-      "No ads, no tracking, no account; nothing leaves the device"
+      "No ads, no tracking, no account; nothing leaves the device",
+      "English and German, including per-app language on Android 13+"
     ],
     "limits": [
       "Android only; not on Google Play — distributed as an APK through GitHub Releases.",
       "Only messages that arrive as a notification on this phone are saved: muted chats and messages you receive while the chat is open often post none.",
       "A message deleted after you have already read it cannot be recovered — there is no notification left to keep.",
       "Voice messages, videos and original files are never part of a notification; pictures are kept only as the smaller preview.",
-      "The user interface is German.",
+      "The interface is available in English and German only.",
       "It does not download or install updates by itself — it only tells you, and you install the new APK over the old one."
     ],
     "targets": [

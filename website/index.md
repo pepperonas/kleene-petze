@@ -25,6 +25,13 @@ Files in the current release:
 - **Export and import** — The whole archive as an encrypted file, JSON or CSV — and back. An import only adds: nothing is overwritten, the same file twice changes nothing.
 - **Keeps listening** — Android silently disconnects notification listeners after reboots, updates and battery savers. Kleene Petze reconnects by itself and shows its status in Settings.
 
+### In numbers
+
+Counted from the source code, updated with every change:
+
+- **Lines of Kotlin:** <!--# include virtual="/ssi/stat-loc_main.txt" stub="none" --> (<!--# include virtual="/ssi/stat-loc_main-detail.txt" stub="none" -->)
+- **Unit tests:** <!--# include virtual="/ssi/stat-tests.txt" stub="none" --> (<!--# include virtual="/ssi/stat-tests-detail.txt" stub="none" -->)
+
 ## Install
 
 1. **Download the APK** — One file for every phone with Android 8.0 or later — there is nothing to pick.
@@ -34,7 +41,7 @@ Files in the current release:
 ## Verify
 
 <!--# include virtual="/ssi/checksums.md" stub="none" -->
-- Signing certificate SHA-256: `0560befbf32c64ede5a518a18bf6799c44f85b45853e97723914d4a84aafe379`
+['- **Lines of Kotlin:** <!--# include virtual="/ssi/stat-loc_main.txt" stub="none" --> (<!--# include virtual="/ssi/stat-loc_main-detail.txt" stub="none" -->)', '- **Unit tests:** <!--# include virtual="/ssi/stat-tests.txt" stub="none" --> (<!--# include virtual="/ssi/stat-tests-detail.txt" stub="none" -->)']
 - Every release is signed with the same key. Compare with `apksigner verify --print-certs`.
 
 ## FAQ
@@ -57,7 +64,7 @@ Files in the current release:
 - Only messages that arrive as a notification on this phone are saved: muted chats and messages you receive while the chat is open often post none.
 - A message deleted after you have already read it cannot be recovered — there is no notification left to keep.
 - Voice messages, videos and original files are never part of a notification; pictures are kept only as the smaller preview.
-- The user interface is German.
+- The interface is available in English and German only.
 - It does not download or install updates by itself — it only tells you, and you install the new APK over the old one.
 
 ## Links

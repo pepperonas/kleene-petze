@@ -73,6 +73,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -81,6 +83,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.celox.notifvault.BuildConfig
+import io.celox.notifvault.R
 import io.celox.notifvault.data.CapturedMessage
 import io.celox.notifvault.data.RetentionPolicy
 import io.celox.notifvault.data.SettingsStore
@@ -153,6 +156,12 @@ fun SettingsScreen(vm: VaultViewModel, onBack: () -> Unit) {
         ActivityResultContracts.CreateDocument("*/*")
     ) { uri -> vm.onExportTarget(uri) }
 
+    // Read in composition: launchExport and the click lambdas below are not composable.
+    val msgNoFilePicker = stringResource(R.string.settings_no_file_picker)
+    val msgNoBrowser = stringResource(R.string.settings_no_browser)
+    val msgRebindRequested = stringResource(R.string.settings_status_rebind_requested)
+    val msgRebindNoAccess = stringResource(R.string.settings_status_rebind_no_access)
+
     val importPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri -> vm.onImportPicked(uri) }
@@ -161,7 +170,7 @@ fun SettingsScreen(vm: VaultViewModel, onBack: () -> Unit) {
         vm.beginExport(format, pass)
         val date = SimpleDateFormat("yyyy-MM-dd", Locale.GERMANY).format(Date())
         runCatching { exportCreator.launch(ExportNaming.exportFileName(date, format)) }
-            .onFailure { vm.cancelExport(); vm.showMessage("Kein Dateiauswahl-Dialog verfügbar.") }
+            .onFailure { vm.cancelExport(); vm.showMessage(msgNoFilePicker) }
     }
 
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
@@ -169,12 +178,12 @@ fun SettingsScreen(vm: VaultViewModel, onBack: () -> Unit) {
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             LargeFlexibleTopAppBar(
-                title = { Text("Einstellungen") },
-                subtitle = { Text("Kleene Petze ${BuildConfig.VERSION_NAME}") },
+                title = { Text(stringResource(R.string.settings_title)) },
+                subtitle = { Text(stringResource(R.string.settings_subtitle_version, BuildConfig.VERSION_NAME)) },
                 scrollBehavior = scrollBehavior,
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Zurück")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.settings_back))
                     }
                 }
             )
@@ -185,39 +194,43 @@ fun SettingsScreen(vm: VaultViewModel, onBack: () -> Unit) {
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            SettingsCard("Status", Icons.Outlined.MonitorHeart, index = 0) {
+            SettingsCard(stringResource(R.string.settings_section_status), Icons.Outlined.MonitorHeart, index = 0) {
                 StatusRow(
-                    "Benachrichtigungszugriff",
+                    stringResource(R.string.settings_status_access),
                     ok = hasAccess,
-                    detail = if (hasAccess) "erteilt" else "fehlt",
+                    detail = stringResource(
+                        if (hasAccess) R.string.settings_status_access_granted
+                        else R.string.settings_status_access_missing
+                    ),
                     action = if (hasAccess) null else ({ PermissionUtils.openNotificationAccessSettings(context) })
                 )
                 StatusRow(
-                    "Erfassungsdienst",
+                    stringResource(R.string.settings_status_service),
                     ok = listenerConnected,
-                    detail = if (listenerConnected) "verbunden" else "nicht verbunden"
+                    detail = stringResource(
+                        if (listenerConnected) R.string.settings_status_service_connected
+                        else R.string.settings_status_service_disconnected
+                    )
                 )
                 Text(
-                    "Letzte Erfassung: ${formatLastCapture(lastCapture)}",
+                    stringResource(R.string.settings_status_last_capture, formatLastCapture(lastCapture)),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 if (hasAccess && !listenerConnected) {
                     TextButton(onClick = {
                         vm.showMessage(if (ListenerWatchdog.requestRebind(context)) {
-                            "Neuverbindung angefordert. Der Status oben springt auf „verbunden“, " +
-                                "sobald das System den Dienst gebunden hat — das dauert einen Moment."
+                            msgRebindRequested
                         } else {
-                            "Ohne Benachrichtigungszugriff kann der Dienst nicht verbunden werden."
+                            msgRebindNoAccess
                         })
-                    }) { Text("Erfassung neu verbinden") }
+                    }) { Text(stringResource(R.string.settings_status_rebind)) }
                 }
             }
-            SettingsCard("Autostart & Selbstheilung", Icons.Outlined.RestartAlt, index = 1) {
-                ToggleRow("Nach Neustart automatisch starten", autoStart) { vm.setAutoStart(it) }
+            SettingsCard(stringResource(R.string.settings_section_autostart), Icons.Outlined.RestartAlt, index = 1) {
+                ToggleRow(stringResource(R.string.settings_autostart_toggle), autoStart) { vm.setAutoStart(it) }
                 Text(
-                    "Verbindet die Erfassung nach einem Neustart, nach einem App-Update und alle " +
-                        "15 Minuten neu. Android trennt den Dienst sonst still — und meldet das nicht.",
+                    stringResource(R.string.settings_autostart_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -226,16 +239,14 @@ fun SettingsScreen(vm: VaultViewModel, onBack: () -> Unit) {
                         lastWatchdog, System.currentTimeMillis()
                     )
                     Text(
-                        "Letzte Prüfung: ${formatRelativeSince(lastWatchdog)}",
+                        stringResource(R.string.settings_autostart_last_check, formatRelativeSince(lastWatchdog)),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     // The one symptom no rebind can cure: the app itself is being frozen.
                     if (overdue) {
                         Text(
-                            "Die Prüfung läuft seit Stunden nicht mehr — das Energiesparen hält die " +
-                                "App an. Nimm sie davon aus, sonst kann auch die Erfassung nicht " +
-                                "zurückkommen.",
+                            stringResource(R.string.settings_autostart_overdue),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.error
                         )
@@ -243,12 +254,12 @@ fun SettingsScreen(vm: VaultViewModel, onBack: () -> Unit) {
                     if (!batteryExempt) {
                         TextButton(onClick = {
                             PermissionUtils.requestIgnoreBatteryOptimizations(context)
-                        }) { Text("Von Akku-Optimierung ausnehmen") }
+                        }) { Text(stringResource(R.string.settings_autostart_battery_exempt)) }
                     }
                 }
             }
-            SettingsCard("Überwachte Apps", Icons.Outlined.Apps, index = 2) {
-                ToggleRow("Alle Apps erfassen", captureAll) { vm.setCaptureAll(it) }
+            SettingsCard(stringResource(R.string.settings_section_monitored), Icons.Outlined.Apps, index = 2) {
+                ToggleRow(stringResource(R.string.settings_capture_all), captureAll) { vm.setCaptureAll(it) }
                 // Spring expand/collapse so the per-app list reveals physically when toggling.
                 AnimatedVisibility(
                     visible = !captureAll,
@@ -266,36 +277,34 @@ fun SettingsScreen(vm: VaultViewModel, onBack: () -> Unit) {
                     }
                 }
             }
-            SettingsCard("Bilder", Icons.Outlined.Image, index = 3) {
-                ToggleRow("Bilder aus Benachrichtigungen sichern", captureImages) {
+            SettingsCard(stringResource(R.string.settings_section_images), Icons.Outlined.Image, index = 3) {
+                ToggleRow(stringResource(R.string.settings_images_toggle), captureImages) {
                     vm.setCaptureImages(it)
                 }
                 Text(
-                    "Kommentare unter Bildern werden immer gesichert — sie sind der Nachrichtentext. " +
-                        "Zusätzlich lässt sich die Bildvorschau speichern, die die Benachrichtigung " +
-                        "mitbringt. Das ist nicht das Original aus WhatsApp, sondern die kleinere " +
-                        "Vorschau; an die Originaldatei kommt keine App heran.",
+                    stringResource(R.string.settings_images_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    if (imageCount == 0) "Keine Bilder gespeichert."
-                    else "$imageCount Bild${if (imageCount == 1) "" else "er"} · ${formatBytes(imageBytes)} " +
-                        "(verschlüsselt in der Datenbank)",
+                    if (imageCount == 0) stringResource(R.string.settings_images_none)
+                    else pluralStringResource(
+                        R.plurals.settings_images_stored, imageCount, imageCount, formatBytes(imageBytes)
+                    ),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 if (imageCount > 0) {
-                    TextButton(onClick = { confirmDropImages = true }) { Text("Alle Bilder löschen") }
+                    TextButton(onClick = { confirmDropImages = true }) { Text(stringResource(R.string.settings_images_delete_all)) }
                 }
             }
-            SettingsCard("Sicherheit", Icons.Outlined.Lock, index = 4) {
-                ToggleRow("App mit Biometrie sperren", biometric) { vm.setBiometric(it) }
-                Text("Daten liegen verschlüsselt (SQLCipher / AES-256) lokal auf dem Gerät.",
+            SettingsCard(stringResource(R.string.settings_section_security), Icons.Outlined.Lock, index = 4) {
+                ToggleRow(stringResource(R.string.settings_biometric_lock), biometric) { vm.setBiometric(it) }
+                Text(stringResource(R.string.settings_security_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.secondary)
             }
-            SettingsCard("Erscheinungsbild", Icons.Outlined.Palette, index = 5) {
+            SettingsCard(stringResource(R.string.settings_section_appearance), Icons.Outlined.Palette, index = 5) {
                 AppearanceSection(
                     mode = themeMode,
                     dynamicColor = dynamicColor,
@@ -303,12 +312,9 @@ fun SettingsScreen(vm: VaultViewModel, onBack: () -> Unit) {
                     onDynamicColor = vm::setDynamicColor
                 )
             }
-            SettingsCard("Export & Import ($total Nachrichten)", Icons.Outlined.ImportExport, index = 6) {
+            SettingsCard(pluralStringResource(R.plurals.settings_section_export, total, total), Icons.Outlined.ImportExport, index = 6) {
                 Text(
-                    "Das ganze Archiv als Datei sichern und wieder einlesen. Verschlüsselung ist " +
-                        "optional — verschlüsselt (.kpvault) ist die Datei ohne Passphrase wertlos, " +
-                        "JSON und CSV sind lesbar und lassen sich genauso zurückspielen. " +
-                        "Gespeicherte Bilder bleiben auf dem Gerät und sind nicht Teil des Exports.",
+                    stringResource(R.string.settings_export_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -320,55 +326,51 @@ fun SettingsScreen(vm: VaultViewModel, onBack: () -> Unit) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         LoadingIndicator(Modifier.size(40.dp))
                         Spacer(Modifier.width(12.dp))
-                        Text("Wird verarbeitet…", style = MaterialTheme.typography.bodyMedium)
+                        Text(stringResource(R.string.settings_export_busy), style = MaterialTheme.typography.bodyMedium)
                     }
                 }
                 Button(
                     onClick = { exportFormatDialog = true },
                     enabled = total > 0 && !busy,
                     modifier = Modifier.fillMaxWidth()
-                ) { Text("Archiv exportieren…") }
+                ) { Text(stringResource(R.string.settings_export_button)) }
                 OutlinedButton(
                     onClick = {
                         runCatching { importPicker.launch(arrayOf("*/*")) }
-                            .onFailure { vm.showMessage("Kein Dateiauswahl-Dialog verfügbar.") }
+                            .onFailure { vm.showMessage(msgNoFilePicker) }
                     },
                     enabled = !busy,
                     modifier = Modifier.fillMaxWidth()
-                ) { Text("Aus Datei importieren…") }
+                ) { Text(stringResource(R.string.settings_import_button)) }
                 Text(
-                    "Ein Import fügt nur hinzu: bereits vorhandene Nachrichten bleiben unverändert, " +
-                        "dieselbe Datei zweimal einzulesen ändert nichts.",
+                    stringResource(R.string.settings_import_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.secondary
                 )
             }
-            SettingsCard("Daten", Icons.Outlined.Storage, index = 7) {
+            SettingsCard(stringResource(R.string.settings_section_data), Icons.Outlined.Storage, index = 7) {
                 RetentionRow(retention) { showRetentionDialog = true }
                 OutlinedButton(
                     onClick = { confirmClear = true },
                     enabled = total > 0,
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                ) { Text("Alle Daten löschen") }
+                ) { Text(stringResource(R.string.settings_clear_all)) }
             }
-            SettingsCard("Updates", Icons.Outlined.SystemUpdate, index = 8) {
-                UpdateSection(onOpenFailed = { vm.showMessage("Kein Browser gefunden.") })
+            SettingsCard(stringResource(R.string.settings_section_updates), Icons.Outlined.SystemUpdate, index = 8) {
+                UpdateSection(onOpenFailed = { vm.showMessage(msgNoBrowser) })
             }
-            SettingsCard("Hinweise", Icons.Outlined.Info, index = 9) {
+            SettingsCard(stringResource(R.string.settings_section_notes), Icons.Outlined.Info, index = 9) {
                 Text(
-                    "• Sprachnachrichten, Videos und Originaldateien kommen in keiner Benachrichtigung " +
-                    "vor und können daher nicht gesichert werden — Bilder nur als Vorschau.\n" +
-                    "• Stummgeschaltete Chats und Nachrichten, die du im offenen Chat empfängst, " +
-                    "lösen oft keine Benachrichtigung aus und werden daher nicht erfasst.",
+                    stringResource(R.string.settings_notes_text),
                     style = MaterialTheme.typography.bodySmall
                 )
             }
-            SettingsCard("Über die App", Icons.Outlined.Favorite, index = 10) {
-                AboutSection(onOpenFailed = { vm.showMessage("Kein Browser gefunden.") })
+            SettingsCard(stringResource(R.string.settings_section_about), Icons.Outlined.Favorite, index = 10) {
+                AboutSection(onOpenFailed = { vm.showMessage(msgNoBrowser) })
             }
             Text(
-                "© 2026 Martin Pfeffer | celox.io",
+                stringResource(R.string.settings_footer),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.secondary,
                 textAlign = TextAlign.Center,
@@ -380,19 +382,18 @@ fun SettingsScreen(vm: VaultViewModel, onBack: () -> Unit) {
     if (confirmClear) {
         AlertDialog(
             onDismissRequest = { confirmClear = false },
-            title = { Text("Alle Daten löschen?") },
+            title = { Text(stringResource(R.string.settings_clear_confirm_title)) },
             text = {
-                Text("Alle $total gespeicherten Nachrichten werden unwiderruflich gelöscht. " +
-                    "Dies kann nicht rückgängig gemacht werden.")
+                Text(pluralStringResource(R.plurals.settings_clear_confirm_text, total, total))
             },
             confirmButton = {
                 TextButton(
                     onClick = { confirmClear = false; vm.clearAll() },
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                ) { Text("Alles löschen") }
+                ) { Text(stringResource(R.string.settings_clear_confirm_button)) }
             },
             dismissButton = {
-                TextButton(onClick = { confirmClear = false }) { Text("Abbrechen") }
+                TextButton(onClick = { confirmClear = false }) { Text(stringResource(R.string.settings_cancel)) }
             }
         )
     }
@@ -400,20 +401,20 @@ fun SettingsScreen(vm: VaultViewModel, onBack: () -> Unit) {
     if (confirmDropImages) {
         AlertDialog(
             onDismissRequest = { confirmDropImages = false },
-            title = { Text("Alle Bilder löschen?") },
+            title = { Text(stringResource(R.string.settings_images_confirm_title)) },
             text = {
-                Text("$imageCount gespeicherte Bild${if (imageCount == 1) "" else "er"} " +
-                    "(${formatBytes(imageBytes)}) werden entfernt. Die Nachrichten und " +
-                    "Kommentare bleiben erhalten.")
+                Text(pluralStringResource(
+                    R.plurals.settings_images_confirm_text, imageCount, imageCount, formatBytes(imageBytes)
+                ))
             },
             confirmButton = {
                 TextButton(
                     onClick = { confirmDropImages = false; vm.deleteAllImages() },
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                ) { Text("Bilder löschen") }
+                ) { Text(stringResource(R.string.settings_images_confirm_button)) }
             },
             dismissButton = {
-                TextButton(onClick = { confirmDropImages = false }) { Text("Abbrechen") }
+                TextButton(onClick = { confirmDropImages = false }) { Text(stringResource(R.string.settings_cancel)) }
             }
         )
     }
@@ -441,9 +442,8 @@ fun SettingsScreen(vm: VaultViewModel, onBack: () -> Unit) {
 
     exportPassFor?.let { format ->
         PassphraseDialog(
-            title = "Export verschlüsseln",
-            hint = "Mindestens ${VaultBackup.MIN_PASSPHRASE_LENGTH} Zeichen. Ohne diese Passphrase " +
-                "lässt sich die Datei nie wieder öffnen.",
+            title = stringResource(R.string.settings_export_pass_title),
+            hint = stringResource(R.string.settings_export_pass_hint, VaultBackup.MIN_PASSPHRASE_LENGTH),
             requireConfirm = true,
             onConfirm = { pass ->
                 exportPassFor = null
@@ -455,8 +455,8 @@ fun SettingsScreen(vm: VaultViewModel, onBack: () -> Unit) {
 
     if (transfer.needsImportPass) {
         PassphraseDialog(
-            title = "Datei entschlüsseln",
-            hint = "Passphrase der verschlüsselten Datei eingeben.",
+            title = stringResource(R.string.settings_import_pass_title),
+            hint = stringResource(R.string.settings_import_pass_hint),
             requireConfirm = false,
             onConfirm = { pass -> vm.submitImportPass(pass) },
             onDismiss = { vm.cancelImport() }
@@ -475,10 +475,10 @@ fun SettingsScreen(vm: VaultViewModel, onBack: () -> Unit) {
     transfer.message?.let { msg ->
         AlertDialog(
             onDismissRequest = { vm.dismissMessage() },
-            title = { Text("Hinweis") },
+            title = { Text(stringResource(R.string.settings_message_title)) },
             text = { Text(msg) },
             confirmButton = {
-                TextButton(onClick = { vm.dismissMessage() }) { Text("OK") }
+                TextButton(onClick = { vm.dismissMessage() }) { Text(stringResource(R.string.settings_ok)) }
             }
         )
     }
@@ -499,19 +499,13 @@ private fun StatusRow(label: String, ok: Boolean, detail: String, action: (() ->
             fontWeight = FontWeight.Medium
         )
         if (action != null) {
-            TextButton(onClick = action) { Text("Öffnen") }
+            TextButton(onClick = action) { Text(stringResource(R.string.settings_status_open)) }
         }
     }
 }
 
 private fun formatLastCapture(millis: Long): String = formatRelativeSince(millis)
 
-/** Storage sizes in the units people read them in — MB once it is worth mentioning. */
-private fun formatBytes(bytes: Long): String = when {
-    bytes >= 1024L * 1024L -> String.format(Locale.GERMANY, "%.1f MB", bytes / (1024.0 * 1024.0))
-    bytes >= 1024L -> "${bytes / 1024} KB"
-    else -> "$bytes B"
-}
 
 @Composable
 private fun RetentionRow(days: Int, onClick: () -> Unit) {
@@ -520,9 +514,12 @@ private fun RetentionRow(days: Int, onClick: () -> Unit) {
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text("Aufbewahrung", style = MaterialTheme.typography.bodyLarge)
+        Text(stringResource(R.string.settings_retention), style = MaterialTheme.typography.bodyLarge)
         TextButton(onClick = onClick) {
-            Text(if (days <= 0) "Unbegrenzt" else "$days Tage")
+            Text(
+                if (days <= 0) stringResource(R.string.settings_retention_forever)
+                else pluralStringResource(R.plurals.settings_retention_days, days, days)
+            )
         }
     }
 }
@@ -532,12 +529,11 @@ private fun RetentionDialog(current: Int, onSelect: (Int) -> Unit, onDismiss: ()
     val options = RetentionPolicy.OPTIONS
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Aufbewahrungsdauer") },
+        title = { Text(stringResource(R.string.settings_retention_dialog_title)) },
         text = {
             Column {
                 Text(
-                    "Ältere Nachrichten werden automatisch und endgültig gelöscht — " +
-                        "auch aufgedeckte (gelöschte/bearbeitete).",
+                    stringResource(R.string.settings_retention_dialog_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(bottom = 8.dp)
@@ -549,7 +545,8 @@ private fun RetentionDialog(current: Int, onSelect: (Int) -> Unit, onDismiss: ()
                     ) {
                         RadioButton(selected = current == days, onClick = { onSelect(days) })
                         Text(
-                            if (days == 0) "Unbegrenzt (Standard)" else "$days Tage",
+                            if (days == 0) stringResource(R.string.settings_retention_forever_default)
+                            else pluralStringResource(R.plurals.settings_retention_days, days, days),
                             style = MaterialTheme.typography.bodyLarge
                         )
                     }
@@ -557,7 +554,7 @@ private fun RetentionDialog(current: Int, onSelect: (Int) -> Unit, onDismiss: ()
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text("Abbrechen") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.settings_cancel)) }
         }
     )
 }
@@ -567,24 +564,21 @@ private fun RetentionDialog(current: Int, onSelect: (Int) -> Unit, onDismiss: ()
 private fun ExportFormatDialog(onSelect: (VaultFormat) -> Unit, onDismiss: () -> Unit) {
     val options = listOf(
         Triple(
-            VaultFormat.ENCRYPTED, "Verschlüsselt (.kpvault)",
-            "AES-256 mit Passphrase. Empfohlen, wenn die Datei das Gerät verlässt — ohne " +
-                "Passphrase ist sie für niemanden lesbar, auch nicht für dich."
+            VaultFormat.ENCRYPTED, stringResource(R.string.settings_format_encrypted),
+            stringResource(R.string.settings_format_encrypted_desc)
         ),
         Triple(
-            VaultFormat.JSON, "JSON (unverschlüsselt)",
-            "Vollständig und wieder importierbar, zusätzlich mit anderen Programmen auswertbar. " +
-                "Der Inhalt steht im Klartext in der Datei."
+            VaultFormat.JSON, stringResource(R.string.settings_format_json),
+            stringResource(R.string.settings_format_json_desc)
         ),
         Triple(
-            VaultFormat.CSV, "CSV (unverschlüsselt)",
-            "Für Tabellenprogramme. Ebenfalls vollständig und wieder importierbar, ebenfalls " +
-                "im Klartext."
+            VaultFormat.CSV, stringResource(R.string.settings_format_csv),
+            stringResource(R.string.settings_format_csv_desc)
         )
     )
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Archiv exportieren") },
+        title = { Text(stringResource(R.string.settings_export_dialog_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 options.forEach { (format, label, description) ->
@@ -607,7 +601,7 @@ private fun ExportFormatDialog(onSelect: (VaultFormat) -> Unit, onDismiss: () ->
             }
         },
         confirmButton = {},
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Abbrechen") } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.settings_cancel)) } }
     )
 }
 
@@ -618,38 +612,40 @@ private fun ImportPreviewDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    val dayFmt = remember { SimpleDateFormat("dd.MM.yyyy", Locale.GERMANY) }
-    val kind = when (preview.format) {
-        VaultFormat.ENCRYPTED -> "Verschlüsselte Sicherung"
-        VaultFormat.JSON -> "JSON-Export"
-        VaultFormat.CSV -> "CSV-Export"
-    }
+    val datePattern = stringResource(R.string.settings_import_date_pattern)
+    val dayFmt = remember(datePattern) { SimpleDateFormat(datePattern, Locale.getDefault()) }
+    val kind = stringResource(
+        when (preview.format) {
+            VaultFormat.ENCRYPTED -> R.string.settings_import_kind_encrypted
+            VaultFormat.JSON -> R.string.settings_import_kind_json
+            VaultFormat.CSV -> R.string.settings_import_kind_csv
+        }
+    )
     val range = if (preview.oldest != null && preview.newest != null)
         "${dayFmt.format(Date(preview.oldest))} – ${dayFmt.format(Date(preview.newest))}"
     else "—"
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Import prüfen") },
+        title = { Text(stringResource(R.string.settings_import_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("Erkannt: $kind")
-                Text("Enthaltene Nachrichten: ${preview.count}")
-                Text("Zeitraum: $range")
-                preview.exported?.let { Text("Erstellt: $it") }
+                Text(stringResource(R.string.settings_import_detected, kind))
+                Text(stringResource(R.string.settings_import_count, preview.count))
+                Text(stringResource(R.string.settings_import_range, range))
+                preview.exported?.let { Text(stringResource(R.string.settings_import_created, it)) }
                 Spacer(Modifier.padding(4.dp))
                 Text(
-                    "Der Import fügt nur hinzu. Bereits vorhandene Nachrichten bleiben " +
-                        "unverändert, nichts wird überschrieben oder gelöscht.",
+                    stringResource(R.string.settings_import_preview_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         },
         confirmButton = {
-            TextButton(onClick = onConfirm, enabled = preview.count > 0) { Text("Importieren") }
+            TextButton(onClick = onConfirm, enabled = preview.count > 0) { Text(stringResource(R.string.settings_import_confirm)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Abbrechen") } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.settings_cancel)) } }
     )
 }
 
@@ -676,7 +672,7 @@ private fun PassphraseDialog(
                 OutlinedTextField(
                     value = pass,
                     onValueChange = { pass = it },
-                    label = { Text("Passphrase") },
+                    label = { Text(stringResource(R.string.settings_passphrase)) },
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
                     modifier = Modifier.fillMaxWidth()
@@ -685,7 +681,7 @@ private fun PassphraseDialog(
                     OutlinedTextField(
                         value = confirm,
                         onValueChange = { confirm = it },
-                        label = { Text("Passphrase wiederholen") },
+                        label = { Text(stringResource(R.string.settings_passphrase_repeat)) },
                         singleLine = true,
                         visualTransformation = PasswordVisualTransformation(),
                         isError = confirm.isNotEmpty() && confirm != pass,
@@ -695,10 +691,10 @@ private fun PassphraseDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = { onConfirm(pass) }, enabled = valid) { Text("Weiter") }
+            TextButton(onClick = { onConfirm(pass) }, enabled = valid) { Text(stringResource(R.string.settings_continue)) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Abbrechen") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.settings_cancel)) }
         }
     )
 }

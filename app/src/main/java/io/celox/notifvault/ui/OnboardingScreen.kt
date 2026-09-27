@@ -11,6 +11,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import io.celox.notifvault.R
 import io.celox.notifvault.ui.theme.Ink
 import io.celox.notifvault.ui.theme.springEntrance
@@ -78,52 +79,50 @@ fun OnboardingScreen(
         ) {
             Image(
                 painterResource(R.drawable.petze_mascot),
-                contentDescription = "Ein Papagei mit Kopfhörer und Monokel sitzt auf einem Tresor",
+                contentDescription = stringResource(R.string.onboarding_mascot_description),
                 contentScale = ContentScale.Fit,
                 modifier = Modifier.fillMaxWidth().heightIn(max = 280.dp).padding(vertical = 8.dp)
             )
         }
         Text(
-            "Kleene Petze",
+            stringResource(R.string.app_name),
             style = MaterialTheme.typography.displaySmallEmphasized,
             modifier = Modifier.springEntrance(1)
         )
         Text(
-            "Petzt alles. Vergisst nie.",
+            stringResource(R.string.general_tagline),
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.springEntrance(2)
         )
         Text(
-            "Speichert eingehende Nachrichten-Benachrichtigungen dauerhaft und verschlüsselt – auch wenn der Absender sie später löscht.",
+            stringResource(R.string.onboarding_intro),
             style = MaterialTheme.typography.bodyMedium
         )
 
         StaggerIn(shown > 0) {
             StepCard(
                 icon = Icons.Default.NotificationsActive,
-                title = "Benachrichtigungszugriff",
-                body = "Erlaube den Zugriff, damit Kleene Petze eingehende Nachrichten mitlesen und sichern kann.",
+                title = stringResource(R.string.onboarding_access_title),
+                body = stringResource(R.string.onboarding_access_body),
                 done = hasAccess
-            ) { Button(onClick = onGrantAccess) { Text(if (hasAccess) "Erneut öffnen" else "Zugriff erteilen") } }
+            ) { Button(onClick = onGrantAccess) { Text(stringResource(if (hasAccess) R.string.onboarding_access_reopen else R.string.onboarding_access_grant)) } }
         }
 
         StaggerIn(shown > 1) {
             StepCard(
                 icon = Icons.Default.BatteryStd,
-                title = "Akku-Optimierung ausnehmen",
-                body = "Samsung beendet Hintergrunddienste sehr aggressiv. Ohne Ausnahme verpasst du Nachrichten.",
+                title = stringResource(R.string.onboarding_battery_title),
+                body = stringResource(R.string.onboarding_battery_body),
                 done = batteryOptimized
-            ) { OutlinedButton(onClick = onBattery) { Text("Ausnahme einrichten") } }
+            ) { OutlinedButton(onClick = onBattery) { Text(stringResource(R.string.onboarding_battery_action)) } }
         }
 
         StaggerIn(shown > 2) {
             StepCard(
                 icon = Icons.Default.Shield,
-                title = "Lokal & verschlüsselt",
-                body = "Alle Daten bleiben auf dem Gerät (SQLCipher / AES-256). Keine Cloud, kein " +
-                    "Tracking, kein Netz — außer du schaltest in den Einstellungen die " +
-                    "Update-Prüfung ein.",
+                title = stringResource(R.string.onboarding_local_title),
+                body = stringResource(R.string.onboarding_local_body),
                 done = true
             ) {}
         }
@@ -135,7 +134,7 @@ fun OnboardingScreen(
             enabled = hasAccess,
             interactionSource = go,
             modifier = Modifier.fillMaxWidth().height(56.dp).springPressed(go)
-        ) { Text("Loslegen", style = MaterialTheme.typography.titleMedium) }
+        ) { Text(stringResource(R.string.onboarding_continue), style = MaterialTheme.typography.titleMedium) }
     }
 }
 

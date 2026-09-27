@@ -4,6 +4,8 @@
 window.SITE_I18N = {
   "de": {
     "skip": "Zum Inhalt springen",
+    "nav.sounds": "Töne",
+    "so.play": "Abspielen",
     "nav.features": "Funktionen",
     "nav.install": "Installieren",
     "nav.faq": "FAQ",
@@ -48,7 +50,7 @@ window.SITE_I18N = {
     "f.h": "Ein Gedächtnis für deine Benachrichtigungen",
     "pl.h": "Funktioniert mit",
     "s.h": "Material 3 Expressive, mit einem Papagei, der nichts vergisst",
-    "s.alt": "Vier Bildschirme mit erfundenen Chats: der Willkommensbildschirm, die Chatliste, ein Chat mit einer rot markierten gelöschten Nachricht und die Ansicht Aufgedeckt",
+    "s.alt": "Vier Bildschirme mit erfundenen Chats: der Willkommensbildschirm mit dem Papagei, die Chatliste, ein Chat mit einer rot markierten gelöschten Nachricht und die Ansicht Uncovered",
     "v.p": "Jede Version ist mit demselben Schlüssel signiert. Vergleiche mit <code>apksigner verify --print-certs</code>.",
     "i.note": "Kleene Petze ist nicht bei Google Play. Jede Version wird von GitHub Actions aus dem öffentlichen Quellcode gebaut, signiert und auf GitHub Releases veröffentlicht.",
     "l.h": "Verantwortungsvoll nutzen",
@@ -83,10 +85,14 @@ window.SITE_I18N = {
     "faq.q5a": "Schalte in den Einstellungen <em>Nach Updates suchen</em> ein: Die App schaut dann einmal täglich nach einer neuen Version und benachrichtigt dich. Die APK von dieser Seite laden und über die bestehende App installieren; Archiv und Einstellungen bleiben erhalten.",
     "faq.q6": "Ist die Datei echt?",
     "faq.q6a": "Vergleiche die SHA-256-Prüfsumme und das Signaturzertifikat auf dieser Seite. Android weigert sich außerdem, ein mit einem anderen Schlüssel signiertes Update über die App zu installieren.",
-    "v.row0": "SHA-256 des Signaturzertifikats"
+    "v.row0": "SHA-256 des Signaturzertifikats",
+    "rs.loc_main": "Zeilen Kotlin",
+    "rs.tests": "Unit-Tests"
   },
   "es": {
     "skip": "Saltar al contenido",
+    "nav.sounds": "Sonidos",
+    "so.play": "Reproducir",
     "nav.features": "Funciones",
     "nav.install": "Instalar",
     "nav.faq": "FAQ",
@@ -131,7 +137,7 @@ window.SITE_I18N = {
     "f.h": "Una memoria para tus notificaciones",
     "pl.h": "Funciona con",
     "s.h": "Material 3 Expressive, con un loro que nunca olvida",
-    "s.alt": "Cuatro pantallas de la interfaz en alemán con chats inventados: la bienvenida, la lista de chats, un chat con un mensaje borrado resaltado en rojo y la vista Aufgedeckt",
+    "s.alt": "Cuatro pantallas con chats inventados: la bienvenida con el loro, la lista de chats, un chat con un mensaje borrado resaltado en rojo y la vista Uncovered",
     "v.p": "Todas las versiones están firmadas con la misma clave. Compáralo con <code>apksigner verify --print-certs</code>.",
     "i.note": "Kleene Petze no está en Google Play. Cada versión la compila y firma GitHub Actions a partir del código fuente público y se publica en GitHub Releases.",
     "l.h": "Úsala con responsabilidad",
@@ -166,10 +172,14 @@ window.SITE_I18N = {
     "faq.q5a": "Activa <em>Nach Updates suchen</em> en los ajustes: la app buscará una nueva versión una vez al día y te avisará. Descarga la APK desde esta página e instálala sobre la app existente; tu archivo y ajustes se conservan.",
     "faq.q6": "¿El archivo es auténtico?",
     "faq.q6a": "Compara la suma SHA-256 y el certificado de firma que aparecen en esta página. Además, Android se niega a instalar sobre la app una actualización firmada con otra clave.",
-    "v.row0": "SHA-256 del certificado de firma"
+    "v.row0": "SHA-256 del certificado de firma",
+    "rs.loc_main": "Líneas de Kotlin",
+    "rs.tests": "Pruebas unitarias"
   },
   "it": {
     "skip": "Vai al contenuto",
+    "nav.sounds": "Suoni",
+    "so.play": "Riproduci",
     "nav.features": "Funzioni",
     "nav.install": "Installa",
     "nav.faq": "FAQ",
@@ -214,7 +224,7 @@ window.SITE_I18N = {
     "f.h": "Una memoria per le tue notifiche",
     "pl.h": "Funziona con",
     "s.h": "Material 3 Expressive, con un pappagallo che non dimentica",
-    "s.alt": "Quattro schermate dell’interfaccia in tedesco con chat inventate: il benvenuto, l’elenco delle chat, una chat con un messaggio cancellato evidenziato in rosso e la vista Aufgedeckt",
+    "s.alt": "Quattro schermate con chat inventate: il benvenuto con il pappagallo, l’elenco delle chat, una chat con un messaggio cancellato evidenziato in rosso e la vista Uncovered",
     "v.p": "Ogni versione è firmata con la stessa chiave. Confronta con <code>apksigner verify --print-certs</code>.",
     "i.note": "Kleene Petze non è su Google Play. Ogni versione viene compilata e firmata da GitHub Actions a partire dal codice sorgente pubblico e pubblicata su GitHub Releases.",
     "l.h": "Usala in modo responsabile",
@@ -249,10 +259,14 @@ window.SITE_I18N = {
     "faq.q5a": "Attiva <em>Nach Updates suchen</em> nelle impostazioni: l’app controllerà una volta al giorno se c’è una nuova versione e ti avviserà. Scarica l’APK da questa pagina e installalo sopra l’app esistente; archivio e impostazioni restano.",
     "faq.q6": "Il file è autentico?",
     "faq.q6a": "Confronta il checksum SHA-256 e il certificato di firma mostrati in questa pagina. Android inoltre rifiuta di installare sopra l’app un aggiornamento firmato con un’altra chiave.",
-    "v.row0": "SHA-256 del certificato di firma"
+    "v.row0": "SHA-256 del certificato di firma",
+    "rs.loc_main": "Righe di Kotlin",
+    "rs.tests": "Test unitari"
   },
   "fr": {
     "skip": "Aller au contenu",
+    "nav.sounds": "Sons",
+    "so.play": "Écouter",
     "nav.features": "Fonctions",
     "nav.install": "Installer",
     "nav.faq": "FAQ",
@@ -297,7 +311,7 @@ window.SITE_I18N = {
     "f.h": "Une mémoire pour vos notifications",
     "pl.h": "Fonctionne avec",
     "s.h": "Material 3 Expressive, avec un perroquet qui n’oublie rien",
-    "s.alt": "Quatre écrans de l’interface en allemand avec des discussions inventées : l’accueil, la liste des discussions, une discussion avec un message supprimé surligné en rouge et la vue Aufgedeckt",
+    "s.alt": "Quatre écrans avec des discussions inventées : l’accueil avec le perroquet, la liste des discussions, une discussion avec un message supprimé surligné en rouge et la vue Uncovered",
     "v.p": "Toutes les versions sont signées avec la même clé. Comparez avec <code>apksigner verify --print-certs</code>.",
     "i.note": "Kleene Petze n’est pas sur Google Play. Chaque version est compilée et signée par GitHub Actions à partir du code source public, puis publiée sur GitHub Releases.",
     "l.h": "À utiliser de façon responsable",
@@ -332,6 +346,8 @@ window.SITE_I18N = {
     "faq.q5a": "Activez <em>Nach Updates suchen</em> dans les réglages : l’app cherche alors une nouvelle version une fois par jour et vous prévient. Téléchargez l’APK depuis cette page et installez-le par-dessus l’app existante ; archive et réglages sont conservés.",
     "faq.q6": "Le fichier est-il authentique ?",
     "faq.q6a": "Comparez la somme SHA-256 et le certificat de signature affichés sur cette page. Android refuse en outre d’installer par-dessus l’app une mise à jour signée avec une autre clé.",
-    "v.row0": "SHA-256 du certificat de signature"
+    "v.row0": "SHA-256 du certificat de signature",
+    "rs.loc_main": "Lignes de Kotlin",
+    "rs.tests": "Tests unitaires"
   }
 };

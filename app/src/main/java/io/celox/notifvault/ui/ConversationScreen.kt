@@ -55,7 +55,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import io.celox.notifvault.R
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -140,7 +143,7 @@ fun ConversationScreen(
                     Column {
                         Text(title, fontWeight = FontWeight.SemiBold, maxLines = 1)
                         Text(
-                            "${messages.size} Nachricht${if (messages.size == 1) "" else "en"}",
+                            pluralStringResource(R.plurals.chat_message_count, messages.size, messages.size),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -148,20 +151,20 @@ fun ConversationScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Zurück")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.chat_back))
                     }
                 },
                 actions = {
                     IconButton(onClick = { confirmDelete = true }) {
-                        Icon(Icons.Default.DeleteOutline, "Chat löschen")
+                        Icon(Icons.Default.DeleteOutline, stringResource(R.string.chat_delete))
                     }
                     Box {
                         IconButton(onClick = { menuOpen = true }) {
-                            Icon(Icons.Default.MoreVert, "Mehr")
+                            Icon(Icons.Default.MoreVert, stringResource(R.string.chat_more))
                         }
                         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                             DropdownMenuItem(
-                                text = { Text("Chat als CSV teilen") },
+                                text = { Text(stringResource(R.string.chat_share_csv)) },
                                 onClick = {
                                     menuOpen = false
                                     val snapshot = messages
@@ -171,7 +174,7 @@ fun ConversationScreen(
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text("Chat als JSON teilen") },
+                                text = { Text(stringResource(R.string.chat_share_json)) },
                                 onClick = {
                                     menuOpen = false
                                     val snapshot = messages
@@ -226,20 +229,19 @@ fun ConversationScreen(
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
-            title = { Text("Chat löschen?") },
+            title = { Text(stringResource(R.string.chat_delete_title)) },
             text = {
-                Text("Alle ${messages.size} gespeicherten Nachrichten aus „$title\" " +
-                    "werden unwiderruflich gelöscht.")
+                Text(pluralStringResource(R.plurals.chat_delete_body, messages.size, messages.size, title))
             },
             confirmButton = {
                 TextButton(onClick = {
                     confirmDelete = false
                     vm.deleteConversation(conversationKey, pkg)
                     onBack()
-                }) { Text("Löschen") }
+                }) { Text(stringResource(R.string.chat_delete_confirm)) }
             },
             dismissButton = {
-                TextButton(onClick = { confirmDelete = false }) { Text("Abbrechen") }
+                TextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.chat_cancel)) }
             }
         )
     }
@@ -263,7 +265,7 @@ private fun AttachmentImage(messageId: String, load: suspend (String) -> ByteArr
     image?.let {
         Image(
             bitmap = it,
-            contentDescription = "Bild aus der Benachrichtigung",
+            contentDescription = stringResource(R.string.chat_image_cd),
             contentScale = ContentScale.FillWidth,
             modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
         )
@@ -314,6 +316,9 @@ private fun MessageBubble(
     val haptics = LocalHapticFeedback.current
     var menuOpen by remember { mutableStateOf(false) }
     var showDetails by remember { mutableStateOf(false) }
+    // Resolved in composition: the menu's onClick lambdas below are not composable.
+    val clipLabel = stringResource(R.string.chat_clip_label)
+    val shareChooserTitle = stringResource(R.string.chat_share_chooser)
 
     Column(Modifier.fillMaxWidth().padding(top = if (showSender) 6.dp else 0.dp)) {
         Box {
@@ -364,7 +369,8 @@ private fun MessageBubble(
                                 tint = onBubble.copy(alpha = 0.7f)
                             )
                             Text(
-                                if (deleted) "gelöscht" else "bearbeitet (frühere Version)",
+                                if (deleted) stringResource(R.string.chat_label_deleted)
+                                else stringResource(R.string.chat_label_edited),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = onBubble.copy(alpha = 0.7f),
                                 modifier = Modifier.weight(1f),
@@ -381,22 +387,22 @@ private fun MessageBubble(
             }
             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                 DropdownMenuItem(
-                    text = { Text("Kopieren") },
-                    onClick = { menuOpen = false; copySensitive(context, m.text) }
+                    text = { Text(stringResource(R.string.chat_copy)) },
+                    onClick = { menuOpen = false; copySensitive(context, clipLabel, m.text) }
                 )
                 DropdownMenuItem(
-                    text = { Text("Teilen") },
+                    text = { Text(stringResource(R.string.chat_share)) },
                     onClick = {
                         menuOpen = false
                         val share = Intent(Intent.ACTION_SEND).apply {
                             type = "text/plain"
                             putExtra(Intent.EXTRA_TEXT, m.text)
                         }
-                        context.startActivity(Intent.createChooser(share, "Nachricht teilen"))
+                        context.startActivity(Intent.createChooser(share, shareChooserTitle))
                     }
                 )
                 DropdownMenuItem(
-                    text = { Text("Details") },
+                    text = { Text(stringResource(R.string.chat_details)) },
                     onClick = { menuOpen = false; showDetails = true }
                 )
             }
@@ -409,9 +415,9 @@ private fun MessageBubble(
 }
 
 /** Copy to the clipboard, flagged sensitive (API 33+) so the OS suppresses the preview. */
-private fun copySensitive(context: android.content.Context, text: String) {
+private fun copySensitive(context: android.content.Context, label: String, text: String) {
     val cm = context.getSystemService(ClipboardManager::class.java) ?: return
-    val clip = ClipData.newPlainText("Nachricht", text)
+    val clip = ClipData.newPlainText(label, text)
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         clip.description.extras = PersistableBundle().apply {
             putBoolean(ClipDescriptionCompat.EXTRA_IS_SENSITIVE, true)
@@ -430,20 +436,23 @@ private object ClipDescriptionCompat {
 private fun MessageDetailsDialog(m: CapturedMessage, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Nachrichtendetails") },
+        title = { Text(stringResource(R.string.chat_details_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                DetailRow("Absender", m.sender)
-                DetailRow("App", m.appLabel)
-                DetailRow("Gesendet", formatTimestamp(m.messageTime))
+                DetailRow(stringResource(R.string.chat_detail_sender), m.sender)
+                DetailRow(stringResource(R.string.chat_detail_app), m.appLabel)
+                DetailRow(stringResource(R.string.chat_detail_sent), formatTimestamp(m.messageTime))
                 // capturedAt is the forensic anchor: when *we* saved it, independent of the
                 // sender-controlled message timestamp.
-                DetailRow("Erfasst", formatTimestamp(m.capturedAt))
-                if (m.deletionSuspected) DetailRow("Status", "Vom Absender gelöscht 🗑")
-                else if (m.editSuperseded) DetailRow("Status", "Vom Absender bearbeitet ✏️ (frühere Version)")
+                DetailRow(stringResource(R.string.chat_detail_captured), formatTimestamp(m.capturedAt))
+                if (m.deletionSuspected) {
+                    DetailRow(stringResource(R.string.chat_detail_status), stringResource(R.string.chat_detail_status_deleted))
+                } else if (m.editSuperseded) {
+                    DetailRow(stringResource(R.string.chat_detail_status), stringResource(R.string.chat_detail_status_edited))
+                }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Schließen") } }
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.chat_close)) } }
     )
 }
 

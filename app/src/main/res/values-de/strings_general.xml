@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Shared -->
+    <string name="general_tagline">Petzt alles. Vergisst nie.</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_mascot_description">Ein Papagei mit Kopfhörer und Monokel sitzt auf einem Tresor</string>
+    <string name="onboarding_intro">Speichert eingehende Nachrichten-Benachrichtigungen dauerhaft und verschlüsselt – auch wenn der Absender sie später löscht.</string>
+    <string name="onboarding_access_title">Benachrichtigungszugriff</string>
+    <string name="onboarding_access_body">Erlaube den Zugriff, damit Kleene Petze eingehende Nachrichten mitlesen und sichern kann.</string>
+    <string name="onboarding_access_reopen">Erneut öffnen</string>
+    <string name="onboarding_access_grant">Zugriff erteilen</string>
+    <string name="onboarding_battery_title">Akku-Optimierung ausnehmen</string>
+    <string name="onboarding_battery_body">Samsung beendet Hintergrunddienste sehr aggressiv. Ohne Ausnahme verpasst du Nachrichten.</string>
+    <string name="onboarding_battery_action">Ausnahme einrichten</string>
+    <string name="onboarding_local_title">Lokal &amp; verschlüsselt</string>
+    <string name="onboarding_local_body">Alle Daten bleiben auf dem Gerät (SQLCipher / AES-256). Keine Cloud, kein Tracking, kein Netz — außer du schaltest in den Einstellungen die Update-Prüfung ein.</string>
+    <string name="onboarding_continue">Loslegen</string>
+
+    <!-- Lock -->
+    <string name="lock_prompt_title">Kleene Petze entsperren</string>
+    <string name="lock_locked_title">Kleene Petze ist gesperrt</string>
+    <string name="lock_unlock">Entsperren</string>
+
+    <!-- Appearance -->
+    <string name="appearance_system">System</string>
+    <string name="appearance_light">Hell</string>
+    <string name="appearance_dark">Dunkel</string>
+    <string name="appearance_dynamic_title">Farben vom Hintergrundbild</string>
+    <string name="appearance_dynamic_hint">Material You statt Petze-Türkis.</string>
+
+    <!-- Update check -->
+    <string name="update_check_title">Nach Updates suchen</string>
+    <string name="update_check_hint">Einmal am Tag fragt die App kleene-petze.celox.io nach der neuesten Version — ohne Kennung, ohne Nachrichten. Ausgeschaltet geht die App nie ins Netz.</string>
+    <string name="update_status_available">Version %1$s ist verfügbar.</string>
+    <string name="update_status_current">Aktuell — neueste Version ist %1$s.</string>
+    <string name="update_status_none">Noch keine Prüfung abgeschlossen.</string>
+    <string name="update_check_now">Jetzt prüfen</string>
+    <string name="update_download">Herunterladen</string>
+
+    <!-- About -->
+    <string name="about_version">Version %1$s (%2$d)</string>
+    <string name="about_made_by">Gemacht von %1$s</string>
+    <string name="about_tagline_long">Petzt alles. Vergisst nie. — Alles bleibt verschlüsselt auf deinem Gerät.</string>
+    <string name="about_link_website">Website</string>
+    <string name="about_link_source">Quelltext</string>
+    <string name="about_link_changelog">Änderungen</string>
+    <string name="about_license">Freie Software unter der %1$s.</string>
+    <string name="about_donate">Mit PayPal spenden</string>
+    <string name="about_donate_hint">Kleene Petze ist kostenlos und ohne Werbung. Wenn sie dir etwas gerettet hat, freue ich mich über einen Kaffee.</string>
+
+    <!-- Export / import -->
+    <plurals name="transfer_export_encrypted">
+        <item quantity="one">%1$d Nachricht verschlüsselt exportiert. Passphrase gut aufbewahren — ohne sie ist die Datei wertlos.</item>
+        <item quantity="other">%1$d Nachrichten verschlüsselt exportiert. Passphrase gut aufbewahren — ohne sie ist die Datei wertlos.</item>
+    </plurals>
+    <plurals name="transfer_export_plain">
+        <item quantity="one">%1$d Nachricht als %2$s exportiert. Die Datei ist unverschlüsselt und im Klartext lesbar.</item>
+        <item quantity="other">%1$d Nachrichten als %2$s exportiert. Die Datei ist unverschlüsselt und im Klartext lesbar.</item>
+    </plurals>
+    <string name="transfer_export_failed">Export fehlgeschlagen: %1$s</string>
+    <string name="transfer_write_failed">Datei konnte nicht geschrieben werden</string>
+    <string name="transfer_read_failed">Datei konnte nicht gelesen werden</string>
+    <plurals name="transfer_import_done">
+        <item quantity="one">Import abgeschlossen: %1$d Nachricht übernommen, %2$d waren bereits vorhanden.</item>
+        <item quantity="other">Import abgeschlossen: %1$d Nachrichten übernommen, %2$d waren bereits vorhanden.</item>
+    </plurals>
+    <string name="transfer_error_decrypt">Entschlüsselung fehlgeschlagen — falsche Passphrase oder beschädigte Datei.</string>
+    <string name="transfer_error_unreadable">Datei konnte nicht gelesen werden: %1$s</string>
+    <string name="transfer_error_import">Import fehlgeschlagen: %1$s</string>
+    <string name="transfer_share_chooser">Export teilen</string>
+</resources>

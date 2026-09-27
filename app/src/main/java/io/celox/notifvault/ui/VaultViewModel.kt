@@ -5,6 +5,8 @@ import android.net.Uri
 import android.provider.DocumentsContract
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import android.content.res.Resources
+import io.celox.notifvault.R
 import io.celox.notifvault.data.BackupMerge
 import io.celox.notifvault.data.CapturedMessage
 import io.celox.notifvault.data.ConversationSummary
@@ -119,6 +121,7 @@ class VaultViewModel(app: Application) : AndroidViewModel(app) {
     private var decrypted: List<CapturedMessage>? = null
 
     private val resolver get() = getApplication<Application>().contentResolver
+    private val res: Resources get() = getApplication<Application>().resources
 
     /** Step 1 of an export: remember the choice until the picker hands back a file. */
     fun beginExport(format: VaultFormat, passphrase: String?) {
@@ -138,7 +141,7 @@ class VaultViewModel(app: Application) : AndroidViewModel(app) {
             val result = runCatching {
                 withContext(Dispatchers.IO) {
                     val out = resolver.openOutputStream(uri, "wt")
-                        ?: error("Datei konnte nicht geschrieben werden")
+                        ?: error(res.getString(R.string.transfer_write_failed))
                     // Only the raw stream is closed here. VaultTransfer finishes its own writer on
                     // success only, so a failure never leaves a well-formed partial archive.
                     out.use { VaultTransfer.export(dao, it, format, pass, total = dao.countNow()) }
@@ -149,13 +152,13 @@ class VaultViewModel(app: Application) : AndroidViewModel(app) {
             val message = result.fold(
                 onSuccess = { n ->
                     if (format.encrypted)
-                        "$n Nachrichten verschlüsselt exportiert. Passphrase gut aufbewahren — " +
-                            "ohne sie ist die Datei wertlos."
+                        res.getQuantityString(R.plurals.transfer_export_encrypted, n, n)
                     else
-                        "$n Nachrichten als ${format.extension.uppercase()} exportiert. " +
-                            "Die Datei ist unverschlüsselt und im Klartext lesbar."
+                        res.getQuantityString(
+                            R.plurals.transfer_export_plain, n, n, format.extension.uppercase()
+                        )
                 },
-                onFailure = { "Export fehlgeschlagen: ${it.message}" }
+                onFailure = { res.getString(R.string.transfer_export_failed, it.message) }
             )
             _transfer.value = _transfer.value.copy(busy = false, message = message)
         }
@@ -170,7 +173,7 @@ class VaultViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun openImport(uri: Uri) =
-        resolver.openInputStream(uri) ?: error("Datei konnte nicht gelesen werden")
+        resolver.openInputStream(uri) ?: error(res.getString(R.string.transfer_read_failed))
 
     /** The import picker returned: sniff the format, then ask for a passphrase or preview. */
     fun onImportPicked(uri: Uri?) {
@@ -235,10 +238,9 @@ class VaultViewModel(app: Application) : AndroidViewModel(app) {
                 }
             }.fold(
                 onSuccess = { (imported, present) ->
-                    "Import abgeschlossen: $imported Nachrichten übernommen, " +
-                        "$present waren bereits vorhanden."
+                    res.getQuantityString(R.plurals.transfer_import_done, imported, imported, present)
                 },
-                onFailure = { importError(it) }
+                onFailure = { importError(res, it) }
             )
             decrypted = null
             _transfer.value = TransferUi(message = message)
@@ -266,7 +268,7 @@ class VaultViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun fail(t: Throwable) {
         decrypted = null
-        _transfer.value = TransferUi(message = importError(t))
+        _transfer.value = TransferUi(message = importError(res, t))
     }
 
     fun setCaptureAll(value: Boolean) = viewModelScope.launch { settings.setCaptureAll(value) }
@@ -312,10 +314,8 @@ class VaultViewModel(app: Application) : AndroidViewModel(app) {
  * Turns a failed export/import into something the user can act on. A wrong passphrase is by far
  * the most common cause and must not read like a corrupt file.
  */
-internal fun importError(t: Throwable): String = when (t) {
-    is javax.crypto.AEADBadTagException ->
-        "Entschlüsselung fehlgeschlagen — falsche Passphrase oder beschädigte Datei."
-    is IllegalArgumentException ->
-        "Datei konnte nicht gelesen werden: ${t.message}"
-    else -> "Import fehlgeschlagen: ${t.message}"
+internal fun importError(res: Resources, t: Throwable): String = when (t) {
+    is javax.crypto.AEADBadTagException -> res.getString(R.string.transfer_error_decrypt)
+    is IllegalArgumentException -> res.getString(R.string.transfer_error_unreadable, t.message)
+    else -> res.getString(R.string.transfer_error_import, t.message)
 }

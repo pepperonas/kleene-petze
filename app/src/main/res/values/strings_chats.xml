@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Home -->
+    <plurals name="home_saved_count">
+        <item quantity="one">%1$d message saved</item>
+        <item quantity="other">%1$d messages saved</item>
+    </plurals>
+    <string name="home_cd_flagged">Uncovered</string>
+    <string name="home_cd_settings">Settings</string>
+    <string name="home_banner_no_access">Notification access is missing — nothing is being saved anymore.</string>
+    <string name="home_banner_allow">Allow</string>
+    <string name="home_banner_unbound">Capture inactive — Android disconnected the service (typically after an update or restart). Nothing is being saved.</string>
+    <string name="home_banner_reconnect">Reconnect</string>
+    <string name="home_update_available">Kleene Petze %1$s is available.</string>
+    <string name="home_update_download">Download</string>
+    <string name="home_search_placeholder">Search messages…</string>
+    <string name="home_filter_all">All</string>
+    <string name="home_search_no_results">No results for “%1$s”</string>
+    <plurals name="home_search_hits">
+        <item quantity="one">%1$d result</item>
+        <item quantity="other">%1$d results</item>
+    </plurals>
+    <plurals name="home_search_hits_capped">
+        <item quantity="one">%1$d+ result</item>
+        <item quantity="other">%1$d+ results</item>
+    </plurals>
+    <string name="home_empty_title">No messages saved yet</string>
+    <string name="home_empty_body">As soon as a WhatsApp notification arrives, it shows up here.</string>
+    <string name="home_empty_total">Saved: %1$d</string>
+
+    <!-- Chat -->
+    <plurals name="chat_message_count">
+        <item quantity="one">%1$d message</item>
+        <item quantity="other">%1$d messages</item>
+    </plurals>
+    <string name="chat_back">Back</string>
+    <string name="chat_delete">Delete chat</string>
+    <string name="chat_more">More</string>
+    <string name="chat_share_csv">Share chat as CSV</string>
+    <string name="chat_share_json">Share chat as JSON</string>
+    <string name="chat_delete_title">Delete chat?</string>
+    <plurals name="chat_delete_body">
+        <item quantity="one">The %1$d saved message from “%2$s” will be permanently deleted.</item>
+        <item quantity="other">All %1$d saved messages from “%2$s” will be permanently deleted.</item>
+    </plurals>
+    <string name="chat_delete_confirm">Delete</string>
+    <string name="chat_cancel">Cancel</string>
+    <string name="chat_image_cd">Image from the notification</string>
+    <string name="chat_label_deleted">deleted</string>
+    <string name="chat_label_edited">edited (earlier version)</string>
+    <string name="chat_copy">Copy</string>
+    <string name="chat_share">Share</string>
+    <string name="chat_details">Details</string>
+    <string name="chat_share_chooser">Share message</string>
+    <string name="chat_clip_label">Message</string>
+    <string name="chat_details_title">Message details</string>
+    <string name="chat_detail_sender">Sender</string>
+    <string name="chat_detail_app">App</string>
+    <string name="chat_detail_sent">Sent</string>
+    <string name="chat_detail_captured">Captured</string>
+    <string name="chat_detail_status">Status</string>
+    <string name="chat_detail_status_deleted">Deleted by the sender 🗑</string>
+    <string name="chat_detail_status_edited">Edited by the sender ✏️ (earlier version)</string>
+    <string name="chat_close">Close</string>
+
+    <!-- Uncovered -->
+    <string name="flagged_title">Uncovered</string>
+    <plurals name="flagged_count">
+        <item quantity="one">%1$d deleted &amp; edited message</item>
+        <item quantity="other">%1$d deleted &amp; edited messages</item>
+    </plurals>
+    <string name="flagged_back">Back</string>
+    <string name="flagged_badge_deleted">🗑 deleted</string>
+    <string name="flagged_badge_edited">✏️ edited</string>
+    <string name="flagged_empty_title">Nothing uncovered yet</string>
+    <string name="flagged_empty_body">If someone deletes or edits a message that was already saved, the original shows up here.</string>
+</resources>

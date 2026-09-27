@@ -21,7 +21,7 @@ Single Gradle module (`:app`), Kotlin + Jetpack Compose, minSdk 26 / target+comp
 ./gradlew assembleDebug        # APK → app/build/outputs/apk/debug/
 ./gradlew installDebug         # build + install to connected device/emulator
 ./gradlew lint                 # Android lint
-./gradlew testDebugUnitTest    # 215 JVM unit tests (MessageId, Grouping, Deletion, Noise, WatchdogPolicy, ImagePolicy, AttachmentSchema, ExportUtils, ExportNaming, VaultJson, VaultCsv, VaultFormat, VaultTransfer, VaultCodec, VaultBackup, BackupMerge, RetentionPolicy, Format, SearchUtils, LockPolicy, AppVersion, UpdatePolicy, ReleaseSource, AboutLinks, ScreenMotion, Changelog)
+./gradlew testDebugUnitTest    # 215 JVM unit tests (MessageId, Grouping, Deletion, Noise, WatchdogPolicy, ImagePolicy, AttachmentSchema, ExportUtils, ExportNaming, VaultJson, VaultCsv, VaultFormat, VaultTransfer, VaultCodec, VaultBackup, BackupMerge, RetentionPolicy, Format, SearchUtils, LockPolicy, AppVersion, UpdatePolicy, ReleaseSource, AboutLinks, ScreenMotion, Changelog, Localization)
 ./gradlew testDebugUnitTest --tests "io.celox.notifvault.notif.MessageIdTest"   # single test class
 ```
 
@@ -329,6 +329,15 @@ and `NoiseCleanup.runOnce`.
   the loop), so anything worth verifying — grouping, dedup, retention, restore-merge, file names, codecs —
   lives in plain Kotlin objects/functions that `src/test` can call directly; the Android class around them
   (service, screen, pruner) just wires values in. New logic follows that split.
-- UI strings and user-facing text are **German** (`res/values/strings.xml`); match that.
+- **UI languages (v1.11.0): English is the default (`res/values/strings*.xml`), German the translation
+  (`res/values-de/`)** — German devices see German, every other language English; per-app language via
+  `res/xml/locales_config.xml`, and `resourceConfigurations = en, de` keeps library texts in the same two
+  languages. Every user-visible string is a resource (split per area: `strings.xml` app/update,
+  `strings_general.xml` onboarding/lock/about/transfer, `strings_settings.xml`, `strings_chats.xml`);
+  **add new texts to both folders** — `LocalizationTest` fails on a key or placeholder that exists in only
+  one language. Dates/relative times come from `ui/Format.kt`'s `FormatWords` (GERMAN/ENGLISH, picked by
+  `FormatWords.of(locale)` with the same de-else-en rule), framework-free and tested in both languages.
+  The noise/deletion marker lists in `notif/` are *detection* data in many languages, not UI — leave them.
+  READMEs: `README.md` English, `README.de.md` German — keep both in step.
 - Release builds currently have `isMinifyEnabled = false`; if enabling R8, SQLCipher/Room may need
   `proguard-rules.pro` keep rules.

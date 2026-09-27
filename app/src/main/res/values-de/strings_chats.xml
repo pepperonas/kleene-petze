@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Home -->
+    <plurals name="home_saved_count">
+        <item quantity="one">%1$d Nachricht gesichert</item>
+        <item quantity="other">%1$d Nachrichten gesichert</item>
+    </plurals>
+    <string name="home_cd_flagged">Aufgedeckt</string>
+    <string name="home_cd_settings">Einstellungen</string>
+    <string name="home_banner_no_access">Benachrichtigungszugriff fehlt — es wird nichts mehr gesichert.</string>
+    <string name="home_banner_allow">Erlauben</string>
+    <string name="home_banner_unbound">Erfassung inaktiv — Android hat den Dienst getrennt (typisch nach einem Update oder Neustart). Es wird nichts gesichert.</string>
+    <string name="home_banner_reconnect">Neu verbinden</string>
+    <string name="home_update_available">Kleene Petze %1$s ist verfügbar.</string>
+    <string name="home_update_download">Laden</string>
+    <string name="home_search_placeholder">Nachrichten durchsuchen…</string>
+    <string name="home_filter_all">Alle</string>
+    <string name="home_search_no_results">Keine Treffer für „%1$s“</string>
+    <plurals name="home_search_hits">
+        <item quantity="one">%1$d Treffer</item>
+        <item quantity="other">%1$d Treffer</item>
+    </plurals>
+    <plurals name="home_search_hits_capped">
+        <item quantity="one">%1$d Treffer+</item>
+        <item quantity="other">%1$d Treffer+</item>
+    </plurals>
+    <string name="home_empty_title">Noch keine Nachrichten gesichert</string>
+    <string name="home_empty_body">Sobald eine WhatsApp-Benachrichtigung eingeht, taucht sie hier auf.</string>
+    <string name="home_empty_total">Gespeichert: %1$d</string>
+
+    <!-- Chat -->
+    <plurals name="chat_message_count">
+        <item quantity="one">%1$d Nachricht</item>
+        <item quantity="other">%1$d Nachrichten</item>
+    </plurals>
+    <string name="chat_back">Zurück</string>
+    <string name="chat_delete">Chat löschen</string>
+    <string name="chat_more">Mehr</string>
+    <string name="chat_share_csv">Chat als CSV teilen</string>
+    <string name="chat_share_json">Chat als JSON teilen</string>
+    <string name="chat_delete_title">Chat löschen?</string>
+    <plurals name="chat_delete_body">
+        <item quantity="one">Die %1$d gespeicherte Nachricht aus „%2$s“ wird unwiderruflich gelöscht.</item>
+        <item quantity="other">Alle %1$d gespeicherten Nachrichten aus „%2$s“ werden unwiderruflich gelöscht.</item>
+    </plurals>
+    <string name="chat_delete_confirm">Löschen</string>
+    <string name="chat_cancel">Abbrechen</string>
+    <string name="chat_image_cd">Bild aus der Benachrichtigung</string>
+    <string name="chat_label_deleted">gelöscht</string>
+    <string name="chat_label_edited">bearbeitet (frühere Version)</string>
+    <string name="chat_copy">Kopieren</string>
+    <string name="chat_share">Teilen</string>
+    <string name="chat_details">Details</string>
+    <string name="chat_share_chooser">Nachricht teilen</string>
+    <string name="chat_clip_label">Nachricht</string>
+    <string name="chat_details_title">Nachrichtendetails</string>
+    <string name="chat_detail_sender">Absender</string>
+    <string name="chat_detail_app">App</string>
+    <string name="chat_detail_sent">Gesendet</string>
+    <string name="chat_detail_captured">Erfasst</string>
+    <string name="chat_detail_status">Status</string>
+    <string name="chat_detail_status_deleted">Vom Absender gelöscht 🗑</string>
+    <string name="chat_detail_status_edited">Vom Absender bearbeitet ✏️ (frühere Version)</string>
+    <string name="chat_close">Schließen</string>
+
+    <!-- Aufgedeckt -->
+    <string name="flagged_title">Aufgedeckt</string>
+    <plurals name="flagged_count">
+        <item quantity="one">%1$d gelöschte &amp; bearbeitete Nachricht</item>
+        <item quantity="other">%1$d gelöschte &amp; bearbeitete Nachrichten</item>
+    </plurals>
+    <string name="flagged_back">Zurück</string>
+    <string name="flagged_badge_deleted">🗑 gelöscht</string>
+    <string name="flagged_badge_edited">✏️ bearbeitet</string>
+    <string name="flagged_empty_title">Noch nichts aufgedeckt</string>
+    <string name="flagged_empty_body">Löscht oder bearbeitet jemand eine Nachricht, die schon gesichert wurde, erscheint das Original hier.</string>
+</resources>

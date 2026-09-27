@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material3.Icon
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.style.TextAlign
 import io.celox.notifvault.ui.theme.ScreenTransitions
@@ -157,7 +158,7 @@ class MainActivity : FragmentActivity() {
         runCatching {
             prompt.authenticate(
                 BiometricPrompt.PromptInfo.Builder()
-                    .setTitle("Kleene Petze entsperren")
+                    .setTitle(getString(R.string.lock_prompt_title))
                     .setAllowedAuthenticators(authenticators)
                     .build()
             )
@@ -197,7 +198,7 @@ private fun LockScreen(onAuthenticate: (onError: (String?) -> Unit) -> Unit) {
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(56.dp)
                 )
-                Text("Kleene Petze ist gesperrt", style = MaterialTheme.typography.headlineSmallEmphasized)
+                Text(stringResource(R.string.lock_locked_title), style = MaterialTheme.typography.headlineSmallEmphasized)
                 error?.let {
                     Text(
                         it,
@@ -211,7 +212,7 @@ private fun LockScreen(onAuthenticate: (onError: (String?) -> Unit) -> Unit) {
                     onClick = { error = null; onAuthenticate { error = it } },
                     interactionSource = interaction,
                     modifier = Modifier.springPressed(interaction)
-                ) { Text("Entsperren") }
+                ) { Text(stringResource(R.string.lock_unlock)) }
             }
         }
     }
